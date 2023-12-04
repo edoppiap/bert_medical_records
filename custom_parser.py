@@ -8,7 +8,7 @@ def parse_arguments():
     # NEW ARGUMENTS
     #
     #
-    parse_arguments('--vocab_size', type=int, default=30_522, help=' ')
+    parser.add_argument('--vocab_size', type=int, default=30_522, help=' ')
     
     #-----------------------------------------------------------------#
     # PRETRAINING ARGUMENTS

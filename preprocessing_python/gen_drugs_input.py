@@ -34,7 +34,7 @@ def create_text_from_data(data_folder, file_name, output_name):
         
 if __name__ == '__main__':
     
-    data_folder = 'bert-medical-records/data'
+    data_folder = 'bert_medical_records/data'
     file_name = 'base_red3.csv'
     output_name = 'output.txt'
     print(os.environ.get(data_folder))

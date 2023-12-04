@@ -5,7 +5,7 @@ from tokenizers import BertWordPieceTokenizer
 from transformers import BertTokenizerFast
 
 def define_tokenizer(special_tokens, files, vocab_size, max_length):  
-  model_path = 'model/pretrained-bert'
+  model_path = 'model/pretrained_bert'
   
   if os.path.exists(os.path.join(model_path, 'config.json')):
     tokenizer = BertTokenizerFast.from_pretrained(model_path, vocab_size=vocab_size)
@@ -23,7 +23,7 @@ def define_tokenizer(special_tokens, files, vocab_size, max_length):
     
     # make the directory if not already there
     if not os.path.isdir(model_path):
-        os.mkdir(model_path)
+        os.makedirs(model_path)
     # save the tokenizer  
     tokenizer.save_model(model_path)
     # dumping some of the tokenizer config to config file, 

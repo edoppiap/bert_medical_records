@@ -1,5 +1,4 @@
-from transformers import TrainingArguments
-from transformers import Trainer
+from transformers import TrainingArguments, Trainer
 
 def pre_train(model, data_collator, train_dataset, test_dataset, output_path):
     training_args = TrainingArguments(

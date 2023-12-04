@@ -3,7 +3,7 @@ import os
 import custom_parser
 
 from preprocessing_python.gen_drugs_input import create_text_from_data
-from load_dataset import dataset_to_text
+from load_dataset import dataset_to_text_2
 from encoder import encode
 from tokenizer import define_tokenizer
 from modeling import define_model
@@ -15,23 +15,23 @@ args = custom_parser.parse_arguments()
 train_file, test_file = 'train.txt', 'test.txt'
 
 if args.input_file is None:
-    data_folder = 'bert-medical-records/data'
+    data_folder = 'bert_medical_records/data'
     file_name = 'base_red3.csv'
     output_name = 'output.txt'
     create_text_from_data(data_folder, file_name, output_name)
 
-    d = dataset_to_text(os.path.join(data_folder, output_name), 
+    d, files = dataset_to_text_2(data_folder, output_name,
                         train_file_name=train_file, 
                         test_file_name=test_file)
 else:
-    d = dataset_to_text(args.input_file, 
+    d, files = dataset_to_text_2(args.input_file, 
                         train_file_name=train_file, 
                         test_file_name=test_file)
 
 
 special_tokens = ['[CLS]','[SEP]','[MASK]']
 
-files = [train_file]
+#files = [train_file]
 # 30,522 vocab is BERT's default vocab size, feel free to tweak
 #vocab_size = 30_522
 # maximum sequence length, lowering will result to faster training (when increasing batch size)
