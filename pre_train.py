@@ -1,6 +1,7 @@
 from transformers import TrainingArguments, Trainer
 
 def pre_train(model, data_collator, train_dataset, test_dataset, output_path):
+    print('Defining training Arguments...')
     training_args = TrainingArguments(
         output_dir=output_path,          # output directory to where save model checkpoint
         evaluation_strategy="steps",    # evaluate each `logging_steps` steps
@@ -16,6 +17,7 @@ def pre_train(model, data_collator, train_dataset, test_dataset, output_path):
         # save_total_limit=3,           # whether you don't have much space so you let only 3 model weights saved in the disk
     )
     
+    print('Do the pre-train...')
     # initialize the trainer and pass everything to it
     trainer = Trainer(
         model=model,
@@ -24,3 +26,6 @@ def pre_train(model, data_collator, train_dataset, test_dataset, output_path):
         train_dataset=train_dataset,
         eval_dataset=test_dataset,
     )
+    
+    trainer.train()
+    print('End pre-train.')

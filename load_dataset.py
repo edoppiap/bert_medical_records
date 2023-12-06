@@ -13,8 +13,8 @@ def dataset_to_text(dataset, output_filename="data.txt"):
         for t in dataset["text"]:
             print(t, file=f)
 
-def dataset_to_text_2(data_folder, ouput_name, train_file_name, test_file_name):
-    file_path = os.path.join(data_folder, ouput_name)
+def dataset_loader(data_folder, output_name, train_file_name, test_file_name):
+    file_path = os.path.join(data_folder, output_name)
     dataset = load_dataset('text', data_files=file_path, split='train')
     d = dataset.train_test_split(test_size=.1)
     

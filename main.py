@@ -2,8 +2,8 @@ import os
 
 import custom_parser
 
-from preprocessing_python.gen_drugs_input import create_text_from_data
-from load_dataset import dataset_to_text_2
+from preprocessing_python.text_generator import create_text_from_data
+from load_dataset import dataset_loader
 from encoder import encode
 from tokenizer import define_tokenizer
 from modeling import define_model
@@ -20,11 +20,11 @@ if args.input_file is None:
     output_name = 'output.txt'
     create_text_from_data(data_folder, file_name, output_name)
 
-    d, files = dataset_to_text_2(data_folder, output_name,
+    d, files = dataset_loader(data_folder, output_name,
                         train_file_name=train_file, 
                         test_file_name=test_file)
 else:
-    d, files = dataset_to_text_2(args.input_file, 
+    d, files = dataset_loader(args.input_file, 
                         train_file_name=train_file, 
                         test_file_name=test_file)
 
@@ -37,7 +37,7 @@ special_tokens = ['[CLS]','[SEP]','[MASK]']
 # maximum sequence length, lowering will result to faster training (when increasing batch size)
 #max_length = 512
 # whether to truncate
-truncate_longer_samples = True    # TODO: ADD PARSER ARGUMENT (has to be true)
+truncate_longer_samples = True    # TODO: ADD PARSER ARGUMENT (has to be true for now)
 
 tokenizer = define_tokenizer(special_tokens, files, args.vocab_size, args.max_seq_length)
 train_dataset, test_dataset = encode(d, tokenizer,
@@ -49,7 +49,7 @@ model = define_model(args.vocab_size, args.max_seq_length)
 data_collator = define_collator(tokenizer)
 
 pre_train(model=model,
-          data_collator=data_folder,
+          data_collator=data_collator,
           train_dataset=train_dataset,
           test_dataset=test_dataset,
-          output_path='model/pretrain_bert')
+          output_path='model/pretrained_bert')

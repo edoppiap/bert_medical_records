@@ -8,9 +8,11 @@ def define_tokenizer(special_tokens, files, vocab_size, max_length):
   model_path = 'model/pretrained_bert'
   
   if os.path.exists(os.path.join(model_path, 'config.json')):
+    print('Tokenizer found')
     tokenizer = BertTokenizerFast.from_pretrained(model_path, vocab_size=vocab_size)
     
   else:
+    print('Train the tokenizer')
 
     # initialize the WordPiece tokenizer
     # CLASS THAT CAN BE CHOSED FROM THE UI
@@ -40,7 +42,8 @@ def define_tokenizer(special_tokens, files, vocab_size, max_length):
           "max_len": max_length,
         }
         json.dump(tokenizer_cfg, f)
-        
+    
+    print('Saving the tokenizer')
     tokenizer = BertTokenizerFast.from_pretrained(model_path, vocab_size=vocab_size)
   
   return tokenizer
