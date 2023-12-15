@@ -1,13 +1,15 @@
 import pandas as pd
 import os
+from tqdm import tqdm
 
-def create_text_from_data(data_folder, file_name, output_name):
-    if not os.path.exists(os.path.join(data_folder, output_name)):
+def create_text_from_data(data_folder, file_name, text_generated_name):
+    output_path = os.path.join(data_folder, text_generated_name)
+    if not os.path.exists(output_path):
         df = pd.read_csv(os.path.join(data_folder, file_name), index_col=0)
         grouped_df = df.groupby('keyone')
 
         results = []
-        for _, patient in grouped_df:
+        for _, patient in tqdm(grouped_df, desc='Producing text file from csv dataset'):
             result = '[CLS] '
             #result = str(keyone) + '\n'
             for _, row in patient.iterrows():
@@ -27,10 +29,10 @@ def create_text_from_data(data_folder, file_name, output_name):
 
         results = '\n'.join(results)
 
-        with open(os.path.join(data_folder, output_name), 'w') as file:
+        with open(os.path.join(data_folder, text_generated_name), 'w') as file:
             file.write(results)
     else:
-        print('Output text file already exists')
+        print(f'Output text file found in {output_path}')
         
 if __name__ == '__main__':
     

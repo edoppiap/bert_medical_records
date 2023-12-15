@@ -1,4 +1,5 @@
 from transformers import TrainingArguments, Trainer
+import os
 
 def pre_train(model, data_collator, train_dataset, test_dataset, output_path):
     print('Defining training Arguments...')
@@ -29,3 +30,5 @@ def pre_train(model, data_collator, train_dataset, test_dataset, output_path):
     
     trainer.train()
     print('End pre-train.')
+    
+    trainer.save_model(os.path.join(output_path, 'model'))
