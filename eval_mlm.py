@@ -3,10 +3,13 @@ from transformers import pipeline
 import os
 import random
 from tqdm import tqdm
+import streamlit as st
+from torch.cuda import is_available
+from stqdm import stqdm
 
-def calculate_mlm_recall(model, tokenizer, folder):
-    eval_path = os.path.join(folder, 'eval.txt')
-    fill = pipeline('fill-mask', model=model, tokenizer=tokenizer, device=0)
+def calculate_mlm_recall(model, tokenizer, folder, streamlit=False):
+    eval_path = os.path.join(folder, 'test.txt')
+    fill = pipeline('fill-mask', model=model, tokenizer=tokenizer, device='cuda' if is_available() else 'cpu')
     
     tokens = []
     with open(eval_path, 'r') as file:
@@ -19,8 +22,15 @@ def calculate_mlm_recall(model, tokenizer, folder):
 
     count = 0
     found = {i: 0 for i in range(1,6,2)}
+    
+    progress_text = 'Performing evaluation'
+    
+    if streamlit:
+        loop = stqdm(tokens, desc=progress_text)
+    else:
+        loop = tqdm(tokens, desc=progress_text)
 
-    for sentence in tqdm(tokens, desc='Performing evaluation'):
+    for sentence in loop:
         i = random.randint(0, len(sentence)-1)
         original = ' '.join(sentence)
         sentence[i] = fill.tokenizer.mask_token
@@ -34,4 +44,7 @@ def calculate_mlm_recall(model, tokenizer, folder):
                     found[recall_i] += 1
                     break
 
-    print(f'\nR@1: {found[1]/count} - R@3: {found[3]/count} - R@5: {found[5]/count}')
+    eval_str = f'\nR@1: {found[1]/count:.4f} - R@3: {found[3]/count:.4f} - R@5: {found[5]/count:.4f}'
+    print(eval_str)
+    if streamlit:
+        st.write('Model performance:',eval_str)
