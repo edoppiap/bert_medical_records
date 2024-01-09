@@ -17,7 +17,7 @@ def parse_arguments():
                         choices=['BertForMaskedLM', 'BertForNextSentencePrediction'])
     parser.add_argument('--pre_train_tasks', type=str, default='mlm',
                         choices=['mlm', 'nsp', 'mlm_nsp'])
-    parser.add_argument('--text_name', type=str, default='text_dataset.')
+    parser.add_argument('--text_name', type=str, default='text_dataset.txt')
     parser.add_argument('--model_input', type=str, 
                         help='If you want to perform only eval you can use this argument to pass the model as input')
     

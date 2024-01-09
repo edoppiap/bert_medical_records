@@ -3,7 +3,7 @@ import os
 from tqdm import tqdm
 import streamlit as st
 
-def create_text_from_data(dataframe_or_file_path, output_folder, output_name, streamlit=False):
+def create_text_from_data(dataframe_or_file_path, output_folder, output_name = 'text_dataset.txt', streamlit=False):
     #output_path = os.path.join(dataframe_or_folder, text_generated_name)
     if isinstance(dataframe_or_file_path, pd.DataFrame): # it means that there is directly the df file
         grouped_df = dataframe_or_file_path.groupby('keyone')
@@ -35,10 +35,11 @@ def create_text_from_data(dataframe_or_file_path, output_folder, output_name, st
             result = result + ' [SEP] '
         results.append(result+'\n')
         
-        my_bar.progress(i/(len(grouped_df)-1), text=progress_text)
+        if streamlit:
+            my_bar.progress(i/(len(grouped_df)-1), text=progress_text)
 
     results = '\n'.join(results)
-
+    
     text_dataset_path = os.path.join(output_folder, output_name)
     with open(text_dataset_path, 'w') as file:
         file.write(results)
