@@ -1,4 +1,5 @@
 from transformers import BertConfig, BertForMaskedLM, BertForPreTraining, BertForNextSentencePrediction
+import os
 
 def get_model_from_string(bert_class_name, config):
     model = None
@@ -13,6 +14,10 @@ def get_model_from_string(bert_class_name, config):
         raise ValueError(f'Invalid bert class name {bert_class_name}')
     
     return model
+
+def get_model_from_path(path):
+    model_folder = os.path.join(path, 'model')
+    return BertForMaskedLM.from_pretrained(model_folder)
 
 def get_bert_model(bert_class_name, vocab_size, max_length):
     # CLASS THAT CAN BE CHOSED FROM THE UI
