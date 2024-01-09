@@ -10,6 +10,17 @@ def parse_arguments():
     #
     parser.add_argument('--vocab_size', type=int, default=30_522, help=' ')
     
+    parser.add_argument('--tokenizer_name', type=str, default='BertTokenizerFast',
+                        choices=['BertTokenizerFast', 'RetriBertTokenizer'],
+                        help='Tokenizer used during pre-train')
+    parser.add_argument('--bert_class', type=str, default='BertForMaskedLM',
+                        choices=['BertForMaskedLM', 'BertForNextSentencePrediction'])
+    parser.add_argument('--pre_train_tasks', type=str, default='mlm',
+                        choices=['mlm', 'nsp', 'mlm_nsp'])
+    parser.add_argument('--text_name', type=str, default='text_dataset.')
+    parser.add_argument('--model_input', type=str, 
+                        help='If you want to perform only eval you can use this argument to pass the model as input')
+    
     #-----------------------------------------------------------------#
     # PRETRAINING ARGUMENTS
     #

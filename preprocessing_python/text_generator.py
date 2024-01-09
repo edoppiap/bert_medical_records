@@ -1,36 +1,49 @@
 import pandas as pd
 import os
+from tqdm import tqdm
+import streamlit as st
 
-def create_text_from_data(data_folder, file_name, output_name):
-    if not os.path.exists(os.path.join(data_folder, output_name)):
-        df = pd.read_csv(os.path.join(data_folder, file_name), index_col=0)
+def create_text_from_data(dataframe_or_file_path, output_folder, output_name, streamlit=False):
+    #output_path = os.path.join(dataframe_or_folder, text_generated_name)
+    if isinstance(dataframe_or_file_path, pd.DataFrame): # it means that there is directly the df file
+        grouped_df = dataframe_or_file_path.groupby('keyone')
+        
+    elif os.path.exists(dataframe_or_file_path):
+        df = pd.read_csv(dataframe_or_file_path, index_col=0)
         grouped_df = df.groupby('keyone')
+    
+    progress_text = 'Producing text file from csv dataset'
+    if streamlit:
+        my_bar = st.progress(0.0, text=progress_text)
 
-        results = []
-        for _, patient in grouped_df:
-            result = '[CLS] '
-            #result = str(keyone) + '\n'
-            for _, row in patient.iterrows():
-                result = result + f"{row['DIA_PRIN']}"
-                if not pd.isna(row['DIA_UNO']):
-                    result = result + f' {row["DIA_UNO"]}'
-                if not pd.isna(row['DIA_DUE']):
-                    result = result + f' {row["DIA_DUE"]}'
-                if not pd.isna(row['DIA_TRE']):
-                    result = result + f' {row["DIA_TRE"]}'
-                if not pd.isna(row['DIA_QUATTRO']):
-                    result = result + f' {row["DIA_QUATTRO"]}'
-                if not pd.isna(row['DIA_CINQUE']):
-                    result = result + f' {row["DIA_CINQUE"]}'
-                result = result + ' [SEP] '
-            results.append(result+'\n')
+    results = []
+    for i, (_, patient) in enumerate(tqdm(grouped_df, desc=progress_text)):
+        result = '[CLS] '
+        #result = str(keyone) + '\n'
+        for _, row in patient.iterrows():
+            result = result + f"{row['DIA_PRIN']}"
+            if not pd.isna(row['DIA_UNO']):
+                result = result + f' {row["DIA_UNO"]}'
+            if not pd.isna(row['DIA_DUE']):
+                result = result + f' {row["DIA_DUE"]}'
+            if not pd.isna(row['DIA_TRE']):
+                result = result + f' {row["DIA_TRE"]}'
+            if not pd.isna(row['DIA_QUATTRO']):
+                result = result + f' {row["DIA_QUATTRO"]}'
+            if not pd.isna(row['DIA_CINQUE']):
+                result = result + f' {row["DIA_CINQUE"]}'
+            result = result + ' [SEP] '
+        results.append(result+'\n')
+        
+        my_bar.progress(i/(len(grouped_df)-1), text=progress_text)
 
-        results = '\n'.join(results)
+    results = '\n'.join(results)
 
-        with open(os.path.join(data_folder, output_name), 'w') as file:
-            file.write(results)
-    else:
-        print('Output text file already exists')
+    text_dataset_path = os.path.join(output_folder, output_name)
+    with open(text_dataset_path, 'w') as file:
+        file.write(results)
+        
+    return text_dataset_path
         
 if __name__ == '__main__':
     
