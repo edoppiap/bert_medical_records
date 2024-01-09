@@ -8,7 +8,6 @@ from tokenizer import define_tokenizer, get_tokenizer_from_path
 from modeling import get_bert_model, get_model_from_path
 from collator import define_collator
 from pre_train import pre_train
-from home import app_run
 from eval_mlm import calculate_mlm_recall
 
 from datetime import datetime

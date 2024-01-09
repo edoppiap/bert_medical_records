@@ -1,6 +1,7 @@
 import pandas as pd
 import os
 from tqdm import tqdm
+from stqdm import stqdm
 import streamlit as st
 
 def create_text_from_data(dataframe_or_file_path, output_folder, output_name = 'text_dataset.txt', streamlit=False):
@@ -14,10 +15,12 @@ def create_text_from_data(dataframe_or_file_path, output_folder, output_name = '
     
     progress_text = 'Producing text file from csv dataset'
     if streamlit:
-        my_bar = st.progress(0.0, text=progress_text)
+        loop = stqdm(grouped_df, desc=progress_text)
+    else:
+        loop = tqdm(grouped_df, desc=progress_text)
 
     results = []
-    for i, (_, patient) in enumerate(tqdm(grouped_df, desc=progress_text)):
+    for i, (_, patient) in enumerate(loop):
         result = '[CLS] '
         #result = str(keyone) + '\n'
         for _, row in patient.iterrows():
@@ -35,8 +38,8 @@ def create_text_from_data(dataframe_or_file_path, output_folder, output_name = '
             result = result + ' [SEP] '
         results.append(result+'\n')
         
-        if streamlit:
-            my_bar.progress(i/(len(grouped_df)-1), text=progress_text)
+        # if streamlit:
+        #     my_bar.progress(i/(len(grouped_df)-1), text=progress_text)
 
     results = '\n'.join(results)
     

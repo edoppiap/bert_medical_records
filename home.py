@@ -2,14 +2,16 @@ import streamlit as st
 import pandas as pd 
 import os
 from datetime import datetime
+from torch.cuda import is_available
 
-from modeling import get_bert_model
+from modeling import get_bert_model, get_model_from_path
 from encoder import encode
-from tokenizer import define_tokenizer
+from tokenizer import define_tokenizer, get_tokenizer_from_path
 from preprocessing_python.text_generator import create_text_from_data
 from load_dataset import dataset_loader
 from collator import define_collator
 from pre_train import pre_train
+from eval_mlm import calculate_mlm_recall
 
 def file_updated():
     st.session_state.upload = 1
@@ -18,7 +20,16 @@ def set_train_state(i):
     st.session_state.train = i
     
 def set_eval_state(i):
-    st.session_state.train = i
+    st.session_state.eval = i
+    
+def st_calculate_mlm_recall(folder_path):
+    model = get_model_from_path(folder_path)
+    tokenizer = get_tokenizer_from_path(folder_path)
+    
+    calculate_mlm_recall(model=model,
+                        tokenizer=tokenizer,
+                        folder=folder_path,
+                        streamlit=True)
 
 @st.cache_data
 def get_output_path():
@@ -112,7 +123,7 @@ def app_run():
     if st.session_state.train >=1:
         
         output_folder = get_output_path()
-        
+        st.write('Hai cliccato il pre-train button')
         uploaded_file = st.file_uploader("Upload a CSV file", type=["csv"], on_change=file_updated)
         if uploaded_file is not None:
             df = pd.read_csv(uploaded_file)
@@ -124,6 +135,7 @@ def app_run():
                 st.write("""Preview data:""")
                 with st.spinner('Loading DataFrame'):
                     st.write(df)
+                selected_rows = df
                 
             if rows == "Select start and end index":
                 start_index = st.number_input('Select the start index', min_value=0, max_value=len(df)-1, step=1)
@@ -147,7 +159,7 @@ def app_run():
             if output_name != '':
                 output_name += '.txt'
                 # Calling the functions in the text_generator.py
-                text_dataset_path = create_text_from_data(df, output_folder, output_name, streamlit=True)
+                text_dataset_path = create_text_from_data(selected_rows, output_folder, output_name, streamlit=True)
                     
                 # Read the contents of the processed file
                 #output_file_path = os.path.join(data_folder, output_name)
@@ -185,16 +197,27 @@ def app_run():
                     "Choose a tokenizer class",
                     ('BertTokenizerFast', 'RetriBertTokenizer')
                 )
+                if tok_name:
+                    st.session_state.tok_name = tok_name
                 
                 vocab_size = st.number_input(label='Vocabulary size', value=30_522)
+                if vocab_size:
+                    st.session_state.vocab_size = vocab_size
                 max_seq_length = st.number_input(label='Max lenght', value=512)
+                if max_seq_length:
+                    st.session_state.max_seq = max_seq_length
                 
                 bert_class = st.selectbox(
                         "Choose a bert class",
                         options=('BertForMaskedLM', 'BertForNextSentencePrediction'), index=0
                     )
+                
+                cuda_toggle = st.toggle('Activate CUDA', value=is_available(), disabled=not is_available(), 
+                                        help='Enable this option to use the GPU to improve training sensibly (only if available).')
         
-        if tok_name and vocab_size and max_seq_length:
+        if st.session_state.get('tok_name', None) and \
+            st.session_state.get('vocab_size', None) and \
+                st.session_state.get('max_seq', None):
             if st.session_state.train < 2:
                 st.button('Start train', on_click=set_train_state, args=[2])
         
@@ -226,8 +249,13 @@ def app_run():
                     st.success('Pre-train ended successfully')
                     set_eval_state(1)
     
-    if st.session_state >= 1:
-        pass
+    if st.session_state.eval >= 1:
+        folder_path = st.text_input('Enter the folder path where is stored the pre-trained version of BERT to evaluate')
+        if folder_path and os.path.exists(folder_path): 
+            st.session_state.folder_path = folder_path
+            st.write(f"Selected folder path: {folder_path}")
+            
+            st_calculate_mlm_recall(folder_path)
                        
     # Using object notation
     # add_selectbox = st.sidebar.selectbox(
