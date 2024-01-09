@@ -13,9 +13,9 @@ def dataset_to_text(dataset, output_filename="data.txt"):
         for t in dataset["text"]:
             print(t, file=f)
 
-def dataset_loader(data_folder, text_generated_name, train_file_name, test_file_name, eval_file_name, output_path):
-    file_path = os.path.join(data_folder, text_generated_name)
-    dataset = load_dataset('text', data_files=file_path, split='train')
+def dataset_loader(input_file, train_file_name, test_file_name, eval_file_name, output_path):
+    #file_path = os.path.join(input_file, text_generated_name)
+    dataset = load_dataset('text', data_files=input_file, split='train')
     
     d_temp = dataset.train_test_split(test_size=.15, shuffle=True)
     d_temp_2 = d_temp['test'].train_test_split(test_size=10, shuffle=True)

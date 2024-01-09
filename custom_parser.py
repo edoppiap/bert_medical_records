@@ -17,6 +17,7 @@ def parse_arguments():
                         choices=['BertForMaskedLM', 'BertForNextSentencePrediction'])
     parser.add_argument('--pre_train_tasks', type=str, default='mlm',
                         choices=['mlm', 'nsp', 'mlm_nsp'])
+    parser.add_argument('--text_name', type=str, default='text_dataset.')
     
     #-----------------------------------------------------------------#
     # PRETRAINING ARGUMENTS

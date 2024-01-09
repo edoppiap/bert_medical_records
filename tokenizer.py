@@ -31,14 +31,9 @@ def define_tokenizer(tokenizer_name, special_tokens, files, vocab_size, max_leng
 
     # initialize the WordPiece tokenizer
     # CLASS THAT CAN BE CHOSED FROM THE UI
-    if tokenizer_name == 'BertTokenizerFast':
-      tokenizer = BertWordPieceTokenizer()
-      # train the tokenizer
-      tokenizer.train(files=files, vocab_size=vocab_size, special_tokens=special_tokens)
-    else:
-      tokenizer = Tokenizer(WordPiece())
-      trainer = WordPieceTrainer(vocab_size=vocab_size, special_tokens=special_tokens)
-      tokenizer.train(files=files, trainer=trainer)
+    tokenizer = BertWordPieceTokenizer()
+    # train the tokenizer
+    tokenizer.train(files=files, vocab_size=vocab_size, special_tokens=special_tokens)
     
     # enable truncation up to the maximum 512 tokens
     tokenizer.enable_truncation(max_length=max_length)
@@ -47,10 +42,8 @@ def define_tokenizer(tokenizer_name, special_tokens, files, vocab_size, max_leng
     if not os.path.isdir(tokenizer_path):
         os.makedirs(tokenizer_path)
     # save the tokenizer 
-    if tokenizer_name == 'BertTokenizerFast':
-      tokenizer.save_model(tokenizer_path)
-    else:
-      tokenizer.save(os.path.join(tokenizer_path, "config.json"))
+    tokenizer.save_model(tokenizer_path)
+    
     # dumping some of the tokenizer config to config file, 
     # including special tokens, whether to lower case and the maximum sequence length
     with open(os.path.join(tokenizer_path, "config.json"), "w") as f:

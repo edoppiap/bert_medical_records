@@ -8,6 +8,7 @@ from tokenizer import define_tokenizer
 from modeling import get_bert_model
 from collator import define_collator
 from pre_train import pre_train
+from home import app_run
 
 from datetime import datetime
 
@@ -23,23 +24,14 @@ print(f'Output files will be saved in folder: {output_path}')
 
 train_file, test_file, eval_file = 'train.txt', 'test.txt', 'eval.txt'
 
-if args.input_file is None:
-    data_folder = 'bert_medical_records/data'
-    file_name = 'base_red3.csv'
-    text_generated_name = 'output.txt'
-    create_text_from_data(data_folder, file_name, text_generated_name)
+text_dataset_path = create_text_from_data(args.input_file, output_folder=output_path,
+                                     output_name=args.text_name)
 
-    d, files = dataset_loader(data_folder, text_generated_name,
-                        train_file_name=train_file, 
-                        test_file_name=test_file,
-                        eval_file_name=eval_file,
-                        output_path=output_path)
-else:
-    d, files = dataset_loader(args.input_file, 
-                        train_file_name=train_file, 
-                        test_file_name=test_file,
-                        eval_file_name=eval_file,
-                        output_path=output_path)
+d, files = dataset_loader(text_dataset_path, 
+                    train_file_name=train_file, 
+                    test_file_name=test_file,
+                    eval_file_name=eval_file,
+                    output_path=output_path)
 
 
 special_tokens = ['[CLS]','[SEP]','[MASK]']
@@ -65,7 +57,7 @@ train_dataset, test_dataset = encode(d, tokenizer,
 
 model = get_bert_model(args.bert_class, args.vocab_size, args.max_seq_length)
 
-data_collator = define_collator(args.pre_train_tasks, tokenizer)
+data_collator = define_collator(tokenizer)
 
 pre_train(model=model,
           data_collator=data_collator,
