@@ -4,4 +4,5 @@ tokenizers==0.15.0
 transformers==4.35.2
 accelerate>=0.20.1
 streamlit>=1.29.0
+stqdm
 torch

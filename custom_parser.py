@@ -14,12 +14,16 @@ def parse_arguments():
                         choices=['BertTokenizerFast', 'RetriBertTokenizer'],
                         help='Tokenizer used during pre-train')
     parser.add_argument('--bert_class', type=str, default='BertForMaskedLM',
-                        choices=['BertForMaskedLM', 'BertForNextSentencePrediction'])
+                        choices=['BertForMaskedLM', 'BertForNextSentencePrediction', 'BertForPreTraining'])
     parser.add_argument('--pre_train_tasks', type=str, default='mlm',
                         choices=['mlm', 'nsp', 'mlm_nsp'])
     parser.add_argument('--text_name', type=str, default='text_dataset.txt')
     parser.add_argument('--model_input', type=str, 
                         help='If you want to perform only eval you can use this argument to pass the model as input')
+    parser.add_argument('--optimizer', type=str, default='AdamW', choices=['AdamW'],
+                        help='Name of optimizer to use')
+    parser.add_argument('--num_epochs', type=int, default=2,
+                        help='Number of epochs with which to train the model')
     
     #-----------------------------------------------------------------#
     # PRETRAINING ARGUMENTS
@@ -34,7 +38,7 @@ def parse_arguments():
                         help='The output directory where the model checkpoints will be written.')
     parser.add_argument('--init_checkpoint', type=str, default=None, 
                         help='Initial checkpoint (usually from a pre-trained BERT model).')
-    parser.add_argument('--max_seq_length', type=int, default=128, choices=[128, 512],
+    parser.add_argument('--max_seq_length', type=int, default=512, choices=[128, 512],
                         help='The maximum total input sequence length after WordPiece tokenization. '+\
                             'Sequences longer than this will be truncated, and sequences shorter '+\
                              'than this will be padded. Must match data generation.')

@@ -1,6 +1,90 @@
 from datasets import load_dataset, DatasetDict
+from transformers import BertTokenizer
 
-import os
+import os, random, torch
+
+class PreTrainingDataset(torch.utils.data.Dataset):
+  def __init__(self, tokenizer, file_path='dataset.txt', max_length=512):
+    assert os.path.isfile(file_path)
+    directory, filename = os.path.split(file_path)
+    self.tokenizer = tokenizer
+    self.bag = []
+    with open(file_path, 'r', encoding='utf-8') as file:
+      for line in file:
+        if line.startswith('[CLS]'):
+          sentences = [s for s in line.lstrip('[CLS]').split('[SEP]') if s.strip() != '']
+          self.bag.extend(sentences)
+    self.bag_size = len(self.bag)
+    self.inputs = self.create_inputs(file_path, max_length)
+
+  def create_inputs(self, file_path, max_length):
+    sentence_a = []
+    sentence_b = []
+    label = []
+
+    with open(file_path, 'r', encoding='utf-8') as file:
+      for line in file:
+        if line.startswith('[CLS]'):
+          sentences = [s for s in line.lstrip('[CLS]').split('[SEP]') if s.strip() != '']
+          num_sentences = len(sentences)
+          if num_sentences > 1:
+            start = random.randint(0, (num_sentences-2))
+            sentence_a.append(sentences[start])
+            if random.random() > .5:
+              sentence_b.append(sentences[start+1])
+              label.append(0)
+            else:
+              sentence_b.append(self.bag[random.randint(0, self.bag_size-1)])
+              label.append(1)
+
+    inputs = self.tokenizer(sentence_a, sentence_b, return_tensors='pt',
+                   max_length=max_length, truncation=True, padding='max_length')
+    inputs['next_sentence_label'] = torch.LongTensor([label]).T
+
+    inputs['labels'] = inputs.input_ids.detach().clone()
+    vocab_ids = list(self.tokenizer.vocab.values())
+    rand = torch.rand(inputs.input_ids.shape)
+    # print(f'{rand = }')
+
+    # mask 15% of token randomly
+    # don't mask the CLS token (0)
+    # don't mask the padding token (102)
+    # don't mask the SEP token (1)
+    mask_arr = (rand < .15) * (inputs.input_ids != self.tokenizer.convert_tokens_to_ids('[CLS]')) * (inputs.input_ids != self.tokenizer.convert_tokens_to_ids('[SEP]')) * (inputs.input_ids != self.tokenizer.convert_tokens_to_ids('[PAD]'))
+
+    for i in range(inputs.input_ids.shape[0]):
+
+      selection = torch.flatten(mask_arr[i].nonzero()).tolist()
+      # inputs.input_ids[i, selection] = self.tokenizer.convert_tokens_to_ids('[MASK]')
+
+      num_tokens = len(selection)
+      num_mask = int(.8 * num_tokens)
+      num_random_word = int(.1 * num_tokens)
+
+      random.shuffle(selection)
+
+      # Replace 80% of tokens with the mask token
+      for j in range(num_mask):
+          inputs.input_ids[i, selection[j]] = self.tokenizer.convert_tokens_to_ids('[MASK]')  # mask token id
+
+      # Replace 10% of tokens with a random word
+      for j in range(num_mask, num_mask + num_random_word):
+          inputs.input_ids[i, selection[j]] = vocab_ids[random.randint(0, len(vocab_ids) - 1)]
+
+      # The remaining 10% of tokens are unchanged
+
+    return inputs
+
+  def __len__(self):
+    return len(self.inputs.input_ids)
+
+  def __getitem__(self,idx):
+    return {key: torch.tensor(val[idx]) for key,val in self.inputs.items()}
+
+def get_loader(tokenizer: BertTokenizer, file_path='dataset.txt', max_length=512, batch_size=16):
+    dataset = PreTrainingDataset(tokenizer, file_path, max_length)
+    loader = loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    return loader
 
 # if you want to train the tokenizer from scratch (especially if you have custom
 # dataset loaded as datasets object), then run this cell to save it as files
@@ -15,7 +99,7 @@ def dataset_to_text(dataset, output_filename="data.txt"):
 
 def dataset_loader(input_file, train_file_name, test_file_name, eval_file_name, output_path):
     #file_path = os.path.join(input_file, text_generated_name)
-    dataset = load_dataset('text', data_files=input_file, split='train')
+    dataset = get_loader('text', data_files=input_file, split='train')
     
     d_temp = dataset.train_test_split(test_size=.15, shuffle=True)
     d_temp_2 = d_temp['test'].train_test_split(test_size=10, shuffle=True)

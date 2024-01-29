@@ -6,7 +6,7 @@ from torch.cuda import is_available
 
 from modeling import get_bert_model, get_model_from_path
 from encoder import encode
-from tokenizer import define_tokenizer, get_tokenizer_from_path
+from tokenizer import train_tokenizer, get_tokenizer_from_path
 from preprocessing_python.text_generator import create_text_from_data
 from load_dataset import dataset_loader
 from collator import define_collator
@@ -54,7 +54,7 @@ def st_create_text(df, output_folder, output_name):
 
 @st.cache_data
 def st_tokenizer(special_tokens, tokenizer_name, files, vocab_size, max_length, output_path):
-    return define_tokenizer(special_tokens=special_tokens,
+    return train_tokenizer(special_tokens=special_tokens,
                                     tokenizer_name=tokenizer_name,
                                     files=files, 
                                     vocab_size=vocab_size, 
@@ -123,7 +123,6 @@ def app_run():
     if st.session_state.train >=1:
         
         output_folder = get_output_path()
-        st.write('Hai cliccato il pre-train button')
         uploaded_file = st.file_uploader("Upload a CSV file", type=["csv"], on_change=file_updated)
         if uploaded_file is not None:
             df = pd.read_csv(uploaded_file)

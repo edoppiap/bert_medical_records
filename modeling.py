@@ -19,19 +19,21 @@ def get_model_from_path(path):
     model_folder = os.path.join(path, 'model')
     return BertForMaskedLM.from_pretrained(model_folder)
 
-def get_bert_model(bert_class_name, vocab_size, max_length):
+def get_bert_model(bert_class_name, vocab_size, max_length, pad_token_id):
     # CLASS THAT CAN BE CHOSED FROM THE UI
     model_config = BertConfig(vocab_size=vocab_size,
-                              max_position_embeddings=max_length,
-                              hidden_size=768,
-                              num_hidden_layers=12,
-                              num_attention_heads=12,
-                              intermediate_size=3072,
-                              hidden_act="gelu",
-                              hidden_dropout_prob=0.1,
-                              attention_probs_dropout_prob=0.1,
-                              type_vocab_size=16,
-                              initializer_range=0.02)
+                                max_position_embeddings=max_length,
+                                hidden_size=768,\
+                                num_hidden_layers=12,
+                                num_attention_heads=12,
+                                intermediate_size=3072,
+                                hidden_act='gelu',
+                                hidden_dropout_prob=0.1,
+                                attention_probs_dropout_prob=0.1,
+                                initializer_range=0.02,
+                                layer_norm_eps=1e-12,
+                                pad_token_id=pad_token_id,
+                                gradient_checkpointing=False,)
     
     model = get_model_from_string(bert_class_name, model_config)
 
