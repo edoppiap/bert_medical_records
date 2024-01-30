@@ -1,7 +1,8 @@
 from datasets import load_dataset, DatasetDict
 from transformers import BertTokenizer
 
-import os, random, torch
+import os, random
+import torch
 
 class PreTrainingDataset(torch.utils.data.Dataset):
   def __init__(self, tokenizer, file_path='dataset.txt', max_length=512):

@@ -1,7 +1,7 @@
 from transformers import TrainingArguments, Trainer, AdamW, BertModel
 import os
 from tqdm import tqdm
-import torch 
+import torch
 
 from load_dataset import PreTrainingDataset
 
@@ -37,12 +37,13 @@ def pre_train(model, data_collator, train_dataset, test_dataset, output_path):
     
     trainer.save_model(os.path.join(output_path, 'model'))
     
-def run_lm_pretrain(model: BertModel, optim, loader: PreTrainingDataset, n_epochs: int = 2):
+def run_lm_pretrain(model, optim, loader: PreTrainingDataset, n_epochs: int = 2):
     
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    print(device)
     
-    model.train()
     model.to(device)
+    model.train()
     
     for epoch in range(n_epochs):
         loop = tqdm(loader, leave=True)

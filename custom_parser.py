@@ -49,7 +49,7 @@ def parse_arguments():
                         help='Whether to run training.')
     parser.add_argument('--do_eval', action='store_true', 
                         help='Whether to run eval on the dev set.')
-    parser.add_argument('--train_batch_size', type=int, default=32,
+    parser.add_argument('--train_batch_size', type=int, default=16,
                         help='Total batch size for training.')
     parser.add_argument('--eval_batch_size', type=int, default=9,
                         help='Total batch size for eval.')
