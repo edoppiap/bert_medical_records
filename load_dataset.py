@@ -5,7 +5,7 @@ import os, random
 import torch
 
 class PreTrainingDataset(torch.utils.data.Dataset):
-  def __init__(self, tokenizer, file_path='dataset.txt', max_length=512):
+  def __init__(self, tokenizer,  mlm, nsp, file_path='dataset.txt', max_length=512):
     assert os.path.isfile(file_path)
     directory, filename = os.path.split(file_path)
     self.tokenizer = tokenizer
@@ -16,31 +16,44 @@ class PreTrainingDataset(torch.utils.data.Dataset):
           sentences = [s for s in line.lstrip('[CLS]').split('[SEP]') if s.strip() != '']
           self.bag.extend(sentences)
     self.bag_size = len(self.bag)
-    self.inputs = self.create_inputs(file_path, max_length)
+    self.inputs = self.create_inputs(file_path, max_length, mlm, nsp)
 
-  def create_inputs(self, file_path, max_length):
-    sentence_a = []
-    sentence_b = []
-    label = []
+  def create_inputs(self, file_path, max_length, mlm, nsp):
+    
+    if nsp:
+      sentence_a = []
+      sentence_b = []
+      label = []
 
-    with open(file_path, 'r', encoding='utf-8') as file:
-      for line in file:
-        if line.startswith('[CLS]'):
-          sentences = [s for s in line.lstrip('[CLS]').split('[SEP]') if s.strip() != '']
-          num_sentences = len(sentences)
-          if num_sentences > 1:
-            start = random.randint(0, (num_sentences-2))
-            sentence_a.append(sentences[start])
-            if random.random() > .5:
-              sentence_b.append(sentences[start+1])
-              label.append(0)
-            else:
-              sentence_b.append(self.bag[random.randint(0, self.bag_size-1)])
-              label.append(1)
+      with open(file_path, 'r', encoding='utf-8') as file:
+        for line in file:
+          if line.startswith('[CLS]'):
+            sentences = [s for s in line.lstrip('[CLS]').split('[SEP]') if s.strip() != '']
+            num_sentences = len(sentences)
+            if num_sentences > 1:
+              start = random.randint(0, (num_sentences-2))
+              sentence_a.append(sentences[start])
+              if random.random() > .5:
+                sentence_b.append(sentences[start+1])
+                label.append(0)
+              else:
+                sentence_b.append(self.bag[random.randint(0, self.bag_size-1)])
+                label.append(1)
 
-    inputs = self.tokenizer(sentence_a, sentence_b, return_tensors='pt',
-                   max_length=max_length, truncation=True, padding='max_length')
-    inputs['next_sentence_label'] = torch.LongTensor([label]).T
+      inputs = self.tokenizer(sentence_a, sentence_b, return_tensors='pt',
+                    max_length=max_length, truncation=True, padding='max_length')
+      inputs['next_sentence_label'] = torch.LongTensor([label]).T
+    else:
+      documents = []
+      
+      with open(file_path, 'r', encoding='utf-8') as file:
+        for line in file:
+          if line.startswith('[CLS]'):
+            documents.append(line)
+      
+      inputs = self.tokenizer(documents, return_tensors='pt',
+                              max_length=max_length, truncation=True, padding='max_length',
+                              add_special_tokens=False) # special tokens already present in the dataset
 
     inputs['labels'] = inputs.input_ids.detach().clone()
     vocab_ids = list(self.tokenizer.vocab.values())
@@ -51,7 +64,7 @@ class PreTrainingDataset(torch.utils.data.Dataset):
     # don't mask the CLS token (0)
     # don't mask the padding token (102)
     # don't mask the SEP token (1)
-    mask_arr = (rand < .15) * (inputs.input_ids != self.tokenizer.convert_tokens_to_ids('[CLS]')) * (inputs.input_ids != self.tokenizer.convert_tokens_to_ids('[SEP]')) * (inputs.input_ids != self.tokenizer.convert_tokens_to_ids('[PAD]'))
+    mask_arr = (rand < mlm) * (inputs.input_ids != self.tokenizer.convert_tokens_to_ids('[CLS]')) * (inputs.input_ids != self.tokenizer.convert_tokens_to_ids('[SEP]')) * (inputs.input_ids != self.tokenizer.convert_tokens_to_ids('[PAD]'))
 
     for i in range(inputs.input_ids.shape[0]):
 
@@ -82,8 +95,8 @@ class PreTrainingDataset(torch.utils.data.Dataset):
   def __getitem__(self,idx):
     return {key: torch.tensor(val[idx]) for key,val in self.inputs.items()}
 
-def get_loader(tokenizer: BertTokenizer, file_path='dataset.txt', max_length=512, batch_size=16):
-    dataset = PreTrainingDataset(tokenizer, file_path, max_length)
+def get_loader(tokenizer: BertTokenizer, file_path='dataset.txt', max_length=512, batch_size=16, mlm=.15, nsp=True):
+    dataset = PreTrainingDataset(tokenizer, mlm, nsp, file_path, max_length)
     loader = loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
     return loader
 

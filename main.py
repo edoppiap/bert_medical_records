@@ -54,7 +54,9 @@ if __name__ == '__main__':
         loader = get_loader(tokenizer=tokenizer,
                               file_path=text_dataset_path,
                               max_length=args.max_seq_length,
-                              batch_size=args.train_batch_size)
+                              batch_size=args.train_batch_size,
+                              mlm=.15,
+                              nsp= args.bert_class == 'BertForPreTraining' or args.bert_class == 'BertForNextSentencePrediction')
 
         model = get_bert_model(args.bert_class, args.vocab_size, args.max_seq_length,
                                pad_token_id=tokenizer.convert_tokens_to_ids(tokenizer.pad_token))

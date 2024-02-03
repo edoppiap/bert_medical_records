@@ -53,14 +53,20 @@ def run_lm_pretrain(model, optim, loader: PreTrainingDataset, n_epochs: int = 2)
             input_ids = batch['input_ids'].to(device)
             token_type_ids = batch['token_type_ids'].to(device)
             attention_mask = batch['attention_mask'].to(device)
-            next_sentence_label = batch['next_sentence_label'].to(device)
             labels = batch['labels'].to(device)
             
-            outputs = model(input_ids=input_ids,
-                    token_type_ids = token_type_ids,
-                    attention_mask = attention_mask,
-                    next_sentence_label = next_sentence_label,
-                    labels = labels)
+            if 'next_sentence_label' in batch.keys():
+                next_sentence_label = batch['next_sentence_label'].to(device)
+                outputs = model(input_ids=input_ids,
+                        token_type_ids = token_type_ids,
+                        attention_mask = attention_mask,
+                        next_sentence_label = next_sentence_label,
+                        labels = labels)
+            else:
+                outputs = model(input_ids=input_ids,
+                        token_type_ids = token_type_ids,
+                        attention_mask = attention_mask,
+                        labels = labels)
             
             loss = outputs.loss
             loss.backward()
