@@ -51,14 +51,24 @@ if __name__ == '__main__':
         #                                     max_length=args.max_seq_length,
         #                                     truncate_longer_samples=truncate_longer_samples)
         
+        if args.pre_train_tasks is not None:
+            if args.pre_train_tasks == 'mlm':
+                bert_class = 'BertForMaskedLM'
+            elif args.pre_train_tasks == 'nsp':
+                bert_class = 'BertForNextSentencePrediction'
+            else:
+                bert_class = 'BertForPreTraining'
+        else:
+            bert_class = args.bert_class
+        
         loader = get_loader(tokenizer=tokenizer,
                               file_path=text_dataset_path,
                               max_length=args.max_seq_length,
                               batch_size=args.train_batch_size,
-                              mlm=.15,
-                              nsp= args.bert_class == 'BertForPreTraining' or args.bert_class == 'BertForNextSentencePrediction')
+                              mlm=args.mlm_percentage if bert_class == 'BertForMaskedLM' or bert_class == 'BertForPreTraining' else 0,
+                              nsp= bert_class == 'BertForPreTraining' or bert_class == 'BertForNextSentencePrediction')
 
-        model = get_bert_model(args.bert_class, args.vocab_size, args.max_seq_length,
+        model = get_bert_model(bert_class, args.vocab_size, args.max_seq_length,
                                pad_token_id=tokenizer.convert_tokens_to_ids(tokenizer.pad_token))
 
         # data_collator = define_collator(tokenizer)

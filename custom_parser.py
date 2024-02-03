@@ -15,8 +15,10 @@ def parse_arguments():
                         help='Tokenizer used during pre-train')
     parser.add_argument('--bert_class', type=str, default='BertForMaskedLM',
                         choices=['BertForMaskedLM', 'BertForNextSentencePrediction', 'BertForPreTraining'])
-    parser.add_argument('--pre_train_tasks', type=str, default='mlm',
+    parser.add_argument('--pre_train_tasks', type=str, default=None,
                         choices=['mlm', 'nsp', 'mlm_nsp'])
+    parser.add_argument('--mlm_percentage', type=float, default=.15,
+                        help='Percentage of token to mask in the maskedlm task')
     parser.add_argument('--text_name', type=str, default='text_dataset.txt')
     parser.add_argument('--model_input', type=str, 
                         help='If you want to perform only eval you can use this argument to pass the model as input')
