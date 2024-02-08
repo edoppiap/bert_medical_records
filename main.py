@@ -84,7 +84,8 @@ if __name__ == '__main__':
         run_lm_pretrain(model=model,
                         optim=optim,
                         loader=loader,
-                        n_epochs=args.num_epochs)
+                        n_epochs=args.num_epochs,
+                        output_path=output_path)
         
     if args.model_input:
         model = get_model_from_path(args.model_input)

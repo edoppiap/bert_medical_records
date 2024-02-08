@@ -37,10 +37,9 @@ def pre_train(model, data_collator, train_dataset, test_dataset, output_path):
     
     trainer.save_model(os.path.join(output_path, 'model'))
     
-def run_lm_pretrain(model, optim, loader: PreTrainingDataset, n_epochs: int = 2):
+def run_lm_pretrain(model, optim, loader, output_path, n_epochs: int = 2):
     
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    print(device)
     
     model.to(device)
     model.train()
@@ -74,3 +73,6 @@ def run_lm_pretrain(model, optim, loader: PreTrainingDataset, n_epochs: int = 2)
             
             loop.set_description(f'Epoch {epoch}')
             loop.set_postfix(loss=loss.item())
+            
+    model_path = os.path.join(output_path,'model')
+    model.save_pretrained(model_path)
