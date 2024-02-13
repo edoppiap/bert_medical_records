@@ -1,7 +1,11 @@
+'''
+This script, defines a function create_text_from_data which takes a dataframe or a file path,
+processes the data, and writes the processed data into a text file.
+'''
 import pandas as pd
 import os
 from tqdm import tqdm
-from stqdm import stqdm
+from stqdm import stqdm #Streamlit-compatible progress bar
 import streamlit as st
 
 def create_text_from_data(dataframe_or_file_path, output_folder, output_name = 'text_dataset.txt', streamlit=False):
