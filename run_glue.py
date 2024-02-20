@@ -70,11 +70,12 @@ def eval(args, test_dataset, model, output_folder):
         input_ids = batch['input_ids'].to(device)
         token_type_ids = batch['token_type_ids'].to(device)
         attention_mask = batch['attention_mask'].to(device)
-        # labels = batch['labels'].to(device)
+        labels = batch['labels'].to(device)
         
         outputs = model(input_ids=input_ids,
                         token_type_ids=token_type_ids,
-                        attention_mask=attention_mask)
+                        attention_mask=attention_mask,
+                        labels=labels)
         
         temp_eval_loss, logits = outputs[:2]
         # pred = logits.detach().cpu().numpy()
@@ -83,10 +84,10 @@ def eval(args, test_dataset, model, output_folder):
         n_eval_step += 1
         if preds is None:
             preds = logits.detach().cpu().numpy()
-            truths = batch['labels'].detach().cpu().numpy()
+            truths = labels.detach().cpu().numpy()
         else:
             preds = np.append(preds, logits.detach().cpu().numpy(), axis=0)
-            truths = np.append(truths, batch['labels'].detach().cpu().numpy(), axis=0)
+            truths = np.append(truths, labels.detach().cpu().numpy(), axis=0)
             
         loop.set_postfix(loss=eval_loss)
     
