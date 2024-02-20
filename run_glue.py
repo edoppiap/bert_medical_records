@@ -1,7 +1,7 @@
 from transformers import BertConfig, BertForSequenceClassification
 from transformers import BertTokenizerFast
 from torch.utils.data import DataLoader
-from datasets import load_metrics, f1_score
+from datasets import f1_score
 
 import os
 from datetime import datetime
