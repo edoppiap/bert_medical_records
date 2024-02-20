@@ -126,9 +126,9 @@ def eval(args, test_dataset, model, output_folder):
         
     eval_loss = eval_loss / n_eval_step
     if nsp_preds is not None:
-        nsp_preds = np.argmax(nsp_preds, axis=0)
+        nsp_preds = np.argmax(nsp_preds, axis=0).astype(np.int32)
     if mlm_preds is not None:
-        mlm_preds = np.argmax(mlm_preds, axis=0)
+        mlm_preds = np.argmax(mlm_preds, axis=0).astype(np.int32)
     
     result = compute_metrics(nsp_preds,nsp_truths,mlm_preds,mlm_truths)
     return result
