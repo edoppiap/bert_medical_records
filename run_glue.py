@@ -14,6 +14,7 @@ from load_dataset import FinetuningDataset
 from optimizer import get_optimizer
 
 def compute_metrics(preds, truths):
+    print(sum(preds==truths))
     return acc_and_f1(preds, truths)
 
 def train(args, train_dataset, model, model_path):
@@ -53,7 +54,7 @@ def train(args, train_dataset, model, model_path):
     return loss
 
 def eval(args, test_dataset, model, output_folder):
-    loader = DataLoader(test_dataset, batch_size=args.train_batch_size,shuffle=True)
+    loader = DataLoader(test_dataset, batch_size=args.train_batch_size,shuffle=False)
     
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     
@@ -76,6 +77,8 @@ def eval(args, test_dataset, model, output_folder):
                         token_type_ids=token_type_ids,
                         attention_mask=attention_mask,
                         labels=labels)
+        
+        print(outputs)
         
         temp_eval_loss, logits = outputs[:2]
         # pred = logits.detach().cpu().numpy()
