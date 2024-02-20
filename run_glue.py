@@ -13,10 +13,6 @@ from custom_parser import parse_arguments
 from load_dataset import FinetuningDataset
 from optimizer import get_optimizer
 
-def compute_metrics(preds, truths):
-    print(sum(preds==truths))
-    return acc_and_f1(preds, truths)
-
 def train(args, train_dataset, model, model_path):
     loader = DataLoader(train_dataset, batch_size=args.train_batch_size,
                         shuffle=True)
@@ -52,6 +48,10 @@ def train(args, train_dataset, model, model_path):
             
     model.save_pretrained(model_path)
     return loss
+
+def compute_metrics(preds, truths):
+    print(sum(preds==truths))
+    return acc_and_f1(preds, truths)
 
 def eval(args, test_dataset, model, output_folder):
     loader = DataLoader(test_dataset, batch_size=args.train_batch_size,shuffle=False)
