@@ -99,7 +99,7 @@ def eval(args, test_dataset, model, output_folder):
             
             if nsp_preds is None:
                 nsp_preds = nsp_logits.detach().cpu()
-                nsp_truths = next_sentence_label.detach().cpu().item()
+                nsp_truths = next_sentence_label.detach().cpu()
             else:
                 nsp_preds = torch.concat((nsp_preds, nsp_logits.detach().cpu()), dim=0)
                 nsp_truths = torch.concat((nsp_truths, next_sentence_label.detach().cpu()), dim=0)
