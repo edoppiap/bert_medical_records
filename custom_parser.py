@@ -28,6 +28,8 @@ def parse_arguments():
                         help='Name of optimizer to use')
     parser.add_argument('--num_epochs', type=int, default=2,
                         help='Number of epochs with which to train the model')
+    parser.add_argument('--use_pretrained_bert', action='store_true',
+                        help='This will initialize the bert model as already pre-trained')
     
     #-----------------------------------------------------------------#
     # PRETRAINING ARGUMENTS
