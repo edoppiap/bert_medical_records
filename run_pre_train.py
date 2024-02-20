@@ -98,11 +98,11 @@ def eval(args, test_dataset, model, output_folder):
             nsp_logits = outputs[1][:, 1]
             
             if nsp_preds is None:
-                nsp_preds = nsp_logits.detach().cpu()
-                nsp_truths = next_sentence_label.detach().cpu()
+                nsp_preds = nsp_logits.detach().cpu().numpy()
+                nsp_truths = next_sentence_label.detach().cpu().numpy()
             else:
-                nsp_preds = torch.cat((nsp_preds, nsp_logits.detach().cpu()), dim=0)
-                nsp_truths = torch.cat((nsp_truths, next_sentence_label.detach().cpu()), dim=0)
+                nsp_preds = np.append(nsp_preds, nsp_logits.detach().cpu().numpy(), axis=0)
+                nsp_truths = np.append(nsp_truths, next_sentence_label.detach().cpu().numpy(), axis=0)
         else:
             outputs = model(input_ids=input_ids,
                     token_type_ids = token_type_ids,
@@ -114,11 +114,11 @@ def eval(args, test_dataset, model, output_folder):
         if args.pre_train_tasks != 'nsp':
             mlm_logits = outputs[2 if args.pre_train_tasks == 'mlm_nsp' else 1]
             if mlm_preds is None:
-                mlm_preds = mlm_logits[:, 1].detach().cpu().tolist()  # Extract predictions
-                mlm_truths = labels.detach().cpu().tolist()  # Extract ground truths
+                mlm_preds = mlm_logits[:, 1].detach().cpu().numpy()  # Extract predictions
+                mlm_truths = labels.detach().cpu().numpy()  # Extract ground truths
             else:
-                mlm_preds.extend(mlm_logits[:, 1].detach().cpu().tolist())  # Append predictions
-                mlm_truths.extend(labels.detach().cpu().tolist())
+                mlm_preds = np.append(mlm_logits[:, 1].detach().cpu().numpy())  # Append predictions
+                mlm_truths = np.append(labels.detach().cpu().numpy())
         
         eval_loss += temp_eval_loss.cpu().item()
         n_eval_step += 1
@@ -126,9 +126,9 @@ def eval(args, test_dataset, model, output_folder):
         
     eval_loss = eval_loss / n_eval_step
     if nsp_preds is not None:
-        nsp_preds = np.argmax(nsp_preds, axis=0).astype(np.int32)
+        nsp_preds = np.argmax(nsp_preds, axis=1)
     if mlm_preds is not None:
-        mlm_preds = np.argmax(mlm_preds, axis=0).astype(np.int32)
+        mlm_preds = np.argmax(mlm_preds, axis=1)
     
     result = compute_metrics(nsp_preds,nsp_truths,mlm_preds,mlm_truths)
     return result
