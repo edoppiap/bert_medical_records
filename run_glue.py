@@ -1,15 +1,25 @@
 from transformers import BertConfig, BertForSequenceClassification
 from transformers import BertTokenizerFast
 from torch.utils.data import DataLoader
+from dataset import load_metrics, f1_score
 
 import os
 from datetime import datetime
 import torch
 from tqdm import tqdm
+import numpy as np
 
 from custom_parser import parse_arguments
 from load_dataset import FinetuningDataset
 from optimizer import get_optimizer
+
+def compute_metrics(preds, truths):
+    acc = (preds == truths).mean().item()
+    f1 = f1_score(y_true=truths, y_preds=preds).item()
+    return {
+        "accuracy": acc,
+        "f1": f1,
+    }
 
 def train(args, train_dataset, model, model_path):
     loader = DataLoader(train_dataset, batch_size=args.train_batch_size,
@@ -48,7 +58,46 @@ def train(args, train_dataset, model, model_path):
     return loss
 
 def eval(args, test_dataset, model, output_folder):
-    return
+    loader = DataLoader(test_dataset, batch_size=args.train_batch_size,shuffle=True)
+    
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    
+    model.to(device)
+    eval_loss = 0.0
+    n_eval_step = 0
+    preds = None
+    truths = None
+    
+    for batch in tqdm(loader, descr='Evaluating', leave=True):
+        model.eval()
+        
+        input_ids = batch['input_ids'].to(device)
+        token_type_ids = batch['token_type_ids'].to(device)
+        attention_mask = batch['attention_mask'].to(device)
+        labels = batch['labels'].to(device)
+        
+        outputs = model(input_ids=input_ids,
+                        token_type_ids=token_type_ids,
+                        attention_mask=attention_mask,
+                        labels=labels)
+        
+        temp_eval_loss, logits = outputs[:2]
+        pred = logits.detach().cpu().numpy()
+        
+        eval_loss += temp_eval_loss.mean().item()
+        n_eval_step += 1
+        if preds is None:
+            preds = logits.detach().cpu().numpy()
+            truths = labels.detach().cpu().numpy()
+        else:
+            preds = np.append(preds, logits.detach().cpu().numpy(), axis=0)
+            truths = np.append(truths, labels.detach().cpu().numpy(), axis=0)
+    
+    eval_loss = eval_loss / n_eval_step
+    preds = np.argmax(preds, axis=1)
+    result = compute_metrics(preds, truths)
+    
+    return result
 
 def main():
     args = parse_arguments()
@@ -76,6 +125,10 @@ def main():
     
     loss = train(args, train_dataset, model, model_path)
     print(f'Average loss = {loss}')
+    
+    result = eval(args, test_dataset, model, output_folder=model_path)
+    
+    print(f'{result = }')
     
     
 if __name__ == '__main__':
