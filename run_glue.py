@@ -27,7 +27,7 @@ def train(args, train_dataset, model, model_path):
         for batch in loop:
             optim.zero_grad()
             
-            inputs_ids = batch['inputs_ids'].to(device)
+            inputs_ids = batch['input_ids'].to(device)
             token_type_ids = batch['token_type_ids'].to(device)
             attention_mask = batch['attention_mask'].to(device)
             labels = batch['labels'].to(device)
