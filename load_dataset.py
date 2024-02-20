@@ -19,18 +19,18 @@ class FinetuningDataset(torch.utils.data.Dataset):
           labels.append(label)
     # self.docs = docs
     # self.labels = labels
-    self.inputs = self.create_inputs(docs, labels)
+    self.inputs = self.create_inputs(docs, labels, max_length)
     
-    def create_inputs(self, docs, labels):
-      inputs = self.tokenizer(docs, return_tensors='pt',
-                    max_length=max_length, truncation=True, padding='max_length')
-      inputs['label'] = torch.LongTensor(labels).T
-      
-    def __len__(self):
-      return len(self.inputs.input_ids)
+  def create_inputs(self, docs, labels, max_length):
+    inputs = self.tokenizer(docs, return_tensors='pt',
+                  max_length=max_length, truncation=True, padding='max_length')
+    inputs['label'] = torch.LongTensor(labels).T
+    
+  def __len__(self):
+    return len(self.inputs.input_ids)
 
-    def __getitem__(self,idx):
-      return {key: torch.tensor(val[idx]) for key,val in self.inputs.items()}
+  def __getitem__(self,idx):
+    return {key: torch.tensor(val[idx]) for key,val in self.inputs.items()}
           
 
 class PreTrainingDataset(torch.utils.data.Dataset):
