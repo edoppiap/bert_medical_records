@@ -60,7 +60,7 @@ def create_finetune_text_from_data(output_folder, file_path='/content/drive/MyDr
     with open(finetune_dataset_path, 'w') as file:
         for di,label in zip(selected_di,labels):
             sentences = [' '.join(item) for item in di]
-            file.write('[CLS] ' + ' [SEP] '.join(sentences) + f' [SEP] {label}\n\n')
+            file.write('[CLS] ' + ' [SEP] '.join(sentences) + f' <end> {label}\n\n')
 
 def create_text_from_data(dataframe_or_file_path, output_folder, output_name = 'text_dataset.txt', streamlit=False):
     #output_path = os.path.join(dataframe_or_folder, text_generated_name)

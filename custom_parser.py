@@ -11,8 +11,10 @@ def parse_arguments():
     parser.add_argument('--vocab_size', type=int, default=30_522, help=' ')
     
     parser.add_argument('--tokenizer_name', type=str, default='BertTokenizerFast',
-                        choices=['BertTokenizerFast', 'RetriBertTokenizer'],
+                        choices=['BertTokenizerFast'],
                         help='Tokenizer used during pre-train')
+    parser.add_argument('--pre_trained_tokenizer_path', type=str, default=None,
+                        help='Use this argument to pass the folder path for an already pretrained version of the tokenizer')
     parser.add_argument('--bert_class', type=str, default='BertForMaskedLM',
                         choices=['BertForMaskedLM', 'BertForNextSentencePrediction', 'BertForPreTraining'])
     parser.add_argument('--pre_train_tasks', type=str, default=None,
@@ -21,7 +23,7 @@ def parse_arguments():
                         help='Percentage of token to mask in the maskedlm task')
     parser.add_argument('--text_name', type=str, default='text_dataset.txt')
     parser.add_argument('--model_input', type=str, 
-                        help='If you want to perform only eval you can use this argument to pass the model as input')
+                        help='Use this argument to pass the folder where find the pre-trained model')
     parser.add_argument('--optimizer', type=str, default='AdamW', choices=['AdamW'],
                         help='Name of optimizer to use')
     parser.add_argument('--num_epochs', type=int, default=2,
@@ -35,7 +37,7 @@ def parse_arguments():
                         help='The config json file corresponding to the pre-trained BERT model. '+\
                             'This specifies the model architecture.')
     parser.add_argument('--input_file', type=str, default=None,
-                        help='Input TF example files (can be a glob or comma separated).')
+                        help='Input csv or txt input files (can be a glob or comma separated).')
     parser.add_argument('--output_dir', type=str, default=None,
                         help='The output directory where the model checkpoints will be written.')
     parser.add_argument('--init_checkpoint', type=str, default=None, 

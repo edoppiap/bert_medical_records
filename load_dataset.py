@@ -4,6 +4,35 @@ from transformers import BertTokenizer
 import os, random
 import torch
 
+class FinetuningDataset(torch.utils.data.Dataset):
+  def __init__(self, tokenizer, file_path='finetune_dataset.txt', max_length=512):
+    assert os.path.isfile(file_path)
+    self.tokenizer = tokenizer
+    with open(file_path, 'r', encoding='utf-8') as file:
+      docs = []
+      labels = []
+      for line in file:
+        if line.startswith('[CLS]'):
+          doc = line.split('<end>')[0]
+          label = line.split('<end>')[1].replace('\n', '')
+          docs.append(doc)
+          labels.append(label)
+    # self.docs = docs
+    # self.labels = labels
+    self.inputs = self.create_inputs(docs, labels)
+    
+    def create_inputs(self, docs, labels):
+      inputs = self.tokenizer(docs, return_tensors='pt',
+                    max_length=max_length, truncation=True, padding='max_length')
+      inputs['label'] = torch.LongTensor(labels).T
+      
+    def __len__(self):
+      return len(self.inputs.input_ids)
+
+    def __getitem__(self,idx):
+      return {key: torch.tensor(val[idx]) for key,val in self.inputs.items()}
+          
+
 class PreTrainingDataset(torch.utils.data.Dataset):
   def __init__(self, tokenizer,  mlm, nsp, file_path='dataset.txt', max_length=512):
     assert os.path.isfile(file_path)
@@ -95,10 +124,9 @@ class PreTrainingDataset(torch.utils.data.Dataset):
   def __getitem__(self,idx):
     return {key: torch.tensor(val[idx]) for key,val in self.inputs.items()}
 
-def get_loader(tokenizer: BertTokenizer, file_path='dataset.txt', max_length=512, batch_size=16, mlm=.15, nsp=True):
+def get_dataset(tokenizer: BertTokenizer, file_path='dataset.txt', max_length=512, mlm=.15, nsp=True):
     dataset = PreTrainingDataset(tokenizer, mlm, nsp, file_path, max_length)
-    loader = loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
-    return loader
+    return torch.utils.data.random_split(dataset, [.8,.2])
 
 # if you want to train the tokenizer from scratch (especially if you have custom
 # dataset loaded as datasets object), then run this cell to save it as files
@@ -113,7 +141,7 @@ def dataset_to_text(dataset, output_filename="data.txt"):
 
 def dataset_loader(input_file, train_file_name, test_file_name, eval_file_name, output_path):
     #file_path = os.path.join(input_file, text_generated_name)
-    dataset = get_loader('text', data_files=input_file, split='train')
+    dataset = get_dataset('text', data_files=input_file, split='train')
     
     d_temp = dataset.train_test_split(test_size=.15, shuffle=True)
     d_temp_2 = d_temp['test'].train_test_split(test_size=10, shuffle=True)
