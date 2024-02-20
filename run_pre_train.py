@@ -120,7 +120,7 @@ def eval(args, test_dataset, model, output_folder):
                 mlm_preds.extend(mlm_logits[:, 1].detach().cpu().tolist())  # Append predictions
                 mlm_truths.extend(labels.detach().cpu().tolist())
         
-        eval_loss += temp_eval_loss().cpu().item()
+        eval_loss += temp_eval_loss.cpu().item()
         n_eval_step += 1
         loop.set_postfix(loss=eval_loss)
         
