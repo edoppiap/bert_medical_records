@@ -170,6 +170,7 @@ def main():
         bert_class = args.bert_class
     
     dataset = PreTrainingDataset(tokenizer,
+                                 file_path=args.input_file,
                                  mlm=args.mlm_percentage if bert_class == 'BertForMaskedLM' or bert_class == 'BertForPreTraining' else 0,
                                  nsp= bert_class == 'BertForPreTraining' or bert_class == 'BertForNextSentencePrediction')
     train_dataset, test_dataset = torch.utils.data.random_split(dataset, [.8,.2])
