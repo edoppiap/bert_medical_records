@@ -69,7 +69,7 @@ def eval(args, test_dataset, model, output_folder):
     preds = None
     truths = None
     
-    for batch in tqdm(loader, descr='Evaluating', leave=True):
+    for batch in tqdm(loader, desc='Evaluating', leave=True):
         model.eval()
         
         input_ids = batch['input_ids'].to(device)
