@@ -95,14 +95,14 @@ def eval(args, test_dataset, model, output_folder):
                     next_sentence_label = next_sentence_label,
                     labels = labels)
             
-            nsp_logits = outputs[1]
+            nsp_logits = outputs[1][:, 1]
             
             if nsp_preds is None:
-                nsp_preds = nsp_logits.detach().cpu().item()
+                nsp_preds = nsp_logits.detach().cpu()
                 nsp_truths = next_sentence_label.detach().cpu().item()
             else:
-                nsp_preds = np.append(nsp_preds, nsp_logits.detach().cpu().numpy(), axis=0)
-                nsp_truths = np.append(nsp_truths, next_sentence_label.detach().cpu().item(), axis=0)
+                nsp_preds = torch.concat((nsp_preds, nsp_logits.detach().cpu()), dim=0)
+                nsp_truths = torch.concat((nsp_truths, next_sentence_label.detach().cpu()), dim=0)
         else:
             outputs = model(input_ids=input_ids,
                     token_type_ids = token_type_ids,
@@ -114,11 +114,11 @@ def eval(args, test_dataset, model, output_folder):
         if args.pre_train_tasks != 'nsp':
             mlm_logits = outputs[2 if args.pre_train_tasks == 'mlm_nsp' else 1]
             if mlm_preds is None:
-                mlm_preds = mlm_logits.detach().cpu().item()
-                mlm_truths = labels.detach().cpu().item()
+                mlm_preds = mlm_logits[:, 1].detach().cpu().tolist()  # Extract predictions
+                mlm_truths = labels.detach().cpu().tolist()  # Extract ground truths
             else:
-                mlm_preds = np.append(mlm_preds, mlm_logits.detach().cpu().item(), axis=0)
-                mlm_truths = np.append(mlm_truths, labels.detach().cpu().item(), axis=0)
+                mlm_preds.extend(mlm_logits[:, 1].detach().cpu().tolist())  # Append predictions
+                mlm_truths.extend(labels.detach().cpu().tolist())
         
         eval_loss += temp_eval_loss().cpu().item()
         n_eval_step += 1
