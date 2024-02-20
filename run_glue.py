@@ -14,13 +14,7 @@ from load_dataset import FinetuningDataset
 from optimizer import get_optimizer
 
 def compute_metrics(preds, truths):
-    acc, f1 = acc_and_f1(preds, truths)
-    # acc = (preds == truths).mean().item()
-    # f1 = f1_score(y_true=truths, y_preds=preds).item()
-    return {
-        "accuracy": acc,
-        "f1": f1,
-    }
+    return acc_and_f1(preds, truths)
 
 def train(args, train_dataset, model, model_path):
     loader = DataLoader(train_dataset, batch_size=args.train_batch_size,
@@ -69,7 +63,8 @@ def eval(args, test_dataset, model, output_folder):
     preds = None
     truths = None
     
-    for batch in tqdm(loader, desc='Evaluating', leave=True):
+    loop = tqdm(loader, desc='Evaluating', leave=True)
+    for batch in loop:
         model.eval()
         
         input_ids = batch['input_ids'].to(device)
@@ -83,7 +78,7 @@ def eval(args, test_dataset, model, output_folder):
                         labels=labels)
         
         temp_eval_loss, logits = outputs[:2]
-        pred = logits.detach().cpu().numpy()
+        # pred = logits.detach().cpu().numpy()
         
         eval_loss += temp_eval_loss.mean().item()
         n_eval_step += 1
@@ -93,6 +88,8 @@ def eval(args, test_dataset, model, output_folder):
         else:
             preds = np.append(preds, logits.detach().cpu().numpy(), axis=0)
             truths = np.append(truths, labels.detach().cpu().numpy(), axis=0)
+            
+        loop.set_postfix(loss=eval_loss)
     
     eval_loss = eval_loss / n_eval_step
     preds = np.argmax(preds, axis=1)
