@@ -147,6 +147,16 @@ def main():
     tokenizer_path = os.path.join(output_path, 'tokenizer')
     model_path = os.path.join(output_path, 'pre_trained_model')
     
+    if args.pre_train_tasks is not None:
+        if args.pre_train_tasks == 'mlm':
+            bert_class = 'BertForMaskedLM'
+        elif args.pre_train_tasks == 'nsp':
+            bert_class = 'BertForNextSentencePrediction'
+        else:
+            bert_class = 'BertForPreTraining'
+    else:
+        bert_class = args.bert_class
+    
     if args.use_pretrained_bert:
         tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
         model = BertForMaskedLM.from_pretrained('bert-base-uncased')
@@ -162,16 +172,6 @@ def main():
         
         model = get_bert_model(bert_class, args.vocab_size, args.max_seq_length,
                                pad_token_id=tokenizer.convert_tokens_to_ids(tokenizer.pad_token))
-    
-    if args.pre_train_tasks is not None:
-        if args.pre_train_tasks == 'mlm':
-            bert_class = 'BertForMaskedLM'
-        elif args.pre_train_tasks == 'nsp':
-            bert_class = 'BertForNextSentencePrediction'
-        else:
-            bert_class = 'BertForPreTraining'
-    else:
-        bert_class = args.bert_class
     
     dataset = PreTrainingDataset(tokenizer,
                                  file_path=args.input_file,
