@@ -1,7 +1,7 @@
 from transformers import BertConfig, BertForSequenceClassification
 from transformers import BertTokenizerFast
 from torch.utils.data import DataLoader
-from datasets import f1_score
+from transformers import acc_and_f1
 
 import os
 from datetime import datetime
@@ -14,8 +14,9 @@ from load_dataset import FinetuningDataset
 from optimizer import get_optimizer
 
 def compute_metrics(preds, truths):
-    acc = (preds == truths).mean().item()
-    f1 = f1_score(y_true=truths, y_preds=preds).item()
+    acc, f1 = acc_and_f1(preds, truths)
+    # acc = (preds == truths).mean().item()
+    # f1 = f1_score(y_true=truths, y_preds=preds).item()
     return {
         "accuracy": acc,
         "f1": f1,
