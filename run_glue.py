@@ -78,8 +78,6 @@ def eval(args, test_dataset, model, output_folder):
                         attention_mask=attention_mask,
                         labels=labels)
         
-        print(outputs)
-        
         temp_eval_loss, logits = outputs[:2]
         # pred = logits.detach().cpu().numpy()
         
