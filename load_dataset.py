@@ -24,7 +24,7 @@ class FinetuningDataset(torch.utils.data.Dataset):
   def create_inputs(self, docs, labels, max_length):
     inputs = self.tokenizer(docs, return_tensors='pt',
                   max_length=max_length, truncation=True, padding='max_length')
-    inputs['label'] = torch.LongTensor(labels).T
+    inputs['labels'] = torch.LongTensor(labels).T
     
     return inputs
     
