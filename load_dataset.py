@@ -16,7 +16,7 @@ class FinetuningDataset(torch.utils.data.Dataset):
           doc = line.split('<end>')[0]
           label = line.split('<end>')[1].replace('\n', '')
           docs.append(doc)
-          labels.append(label)
+          labels.append(int(label))
     # self.docs = docs
     # self.labels = labels
     self.inputs = self.create_inputs(docs, labels, max_length)
