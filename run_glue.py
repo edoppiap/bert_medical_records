@@ -124,6 +124,8 @@ def main():
                                 max_length=args.max_seq_length)
     train_dataset, test_dataset = torch.utils.data.random_split(dataset, [.8,.2])
     
+    print(f'{len(train_dataset) = }\n{len(test_dataset) = }')
+    
     loss = train(args, train_dataset, model, model_path)
     print(f'Average loss = {loss}')
     
