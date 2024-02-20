@@ -1,6 +1,6 @@
 from transformers import BertForMaskedLM, BertConfig, BertForPreTraining, BertForNextSentencePrediction
 from transformers import BertTokenizerFast
-from dataset import load_metric
+from datasets import load_metric
 from transformers.data.metrics import acc_and_f1
 
 import os
