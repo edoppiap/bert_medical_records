@@ -99,10 +99,10 @@ def eval(args, test_dataset, model, output_folder):
             
             if nsp_preds is None:
                 nsp_preds = nsp_logits.detach().cpu().numpy()
-                nsp_truths = next_sentence_label.detach().cpu().numpy()
+                nsp_truths = next_sentence_label[:, 0].detach().cpu().numpy()
             else:
                 nsp_preds = np.append(nsp_preds, nsp_logits.detach().cpu().numpy(), axis=0)
-                nsp_truths = np.append(nsp_truths, next_sentence_label.detach().cpu().numpy(), axis=0)
+                nsp_truths = np.append(nsp_truths, next_sentence_label[:, 0].detach().cpu().numpy(), axis=0)
         else:
             outputs = model(input_ids=input_ids,
                     token_type_ids = token_type_ids,
