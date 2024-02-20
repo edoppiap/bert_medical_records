@@ -14,7 +14,7 @@ def create_finetune_text_from_data(output_folder, file_path='/content/drive/MyDr
     all_diagnoses = []
     all_hospitalisations = []
 
-    for _,patient in grouped_df:
+    for _,patient in tqdm(grouped_df, desc='Reading input file'):
         diagnoses = []
         hospitalisations = []
         for _,row in patient.iterrows():
@@ -58,7 +58,7 @@ def create_finetune_text_from_data(output_folder, file_path='/content/drive/MyDr
 
     finetune_dataset_path = os.path.join(output_folder,output_name)
     with open(finetune_dataset_path, 'w') as file:
-        for di,label in zip(selected_di,labels):
+        for di,label in tqdm(zip(selected_di,labels), desc='Creating dataset for finetuning'):
             sentences = [' '.join(item) for item in di]
             file.write('[CLS] ' + ' [SEP] '.join(sentences) + f' <end> {label}\n\n')
 

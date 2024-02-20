@@ -1,6 +1,7 @@
 from transformers import BertForMaskedLM, BertConfig, BertForPreTraining, BertForNextSentencePrediction
 from transformers import BertTokenizerFast
 from dataset import load_metric
+from transformers.data.metrics import acc_and_f1
 
 import os
 from datetime import datetime
@@ -58,8 +59,10 @@ def train(args, train_dataset, model, model_path):
     model.save_pretrained(model_path)
     return loss
 
-def compute_metrics(preds,labels):
-    return
+def compute_metrics(nsp_preds,nsp_truths, mlm_preds, mlm_truths):
+    print(f'Nsp metrics: {acc_and_f1(nsp_preds,nsp_truths)}')
+    print(f'Mlm metrics: {acc_and_f1(mlm_preds,mlm_truths)}')
+    
 
 def eval(args, test_dataset, model, output_folder):
     loader = DataLoader(test_dataset, batch_size=args.train_batch_size, shuffle=False)
