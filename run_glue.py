@@ -27,12 +27,12 @@ def train(args, train_dataset, model, model_path):
         for batch in loop:
             optim.zero_grad()
             
-            inputs_ids = batch['input_ids'].to(device)
+            input_ids = batch['input_ids'].to(device)
             token_type_ids = batch['token_type_ids'].to(device)
             attention_mask = batch['attention_mask'].to(device)
             labels = batch['labels'].to(device)
             
-            outputs = model(inputs_ids=inputs_ids,
+            outputs = model(input_ids=input_ids,
                             token_type_ids=token_type_ids,
                             attention_mask=attention_mask,
                             labels=labels)
