@@ -26,6 +26,8 @@ class FinetuningDataset(torch.utils.data.Dataset):
                   max_length=max_length, truncation=True, padding='max_length')
     inputs['label'] = torch.LongTensor(labels).T
     
+    return inputs
+    
   def __len__(self):
     return len(self.inputs.input_ids)
 
