@@ -11,6 +11,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from custom_parser import parse_arguments
+from modeling import get_bert_model
 from tokenizer import train_tokenizer
 from optimizer import get_optimizer
 from load_dataset import PreTrainingDataset
@@ -158,6 +159,9 @@ def main():
                                     vocab_size=args.vocab_size, 
                                     max_length=args.max_seq_length,
                                     output_path=output_path)
+        
+        model = get_bert_model(bert_class, args.vocab_size, args.max_seq_length,
+                               pad_token_id=tokenizer.convert_tokens_to_ids(tokenizer.pad_token))
     
     if args.pre_train_tasks is not None:
         if args.pre_train_tasks == 'mlm':
