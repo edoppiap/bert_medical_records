@@ -117,8 +117,8 @@ def eval(args, test_dataset, model, output_folder):
                 mlm_preds = mlm_logits[:, 1].detach().cpu().numpy()  # Extract predictions
                 mlm_truths = labels.detach().cpu().numpy()  # Extract ground truths
             else:
-                mlm_preds = np.append(mlm_logits[:, 1].detach().cpu().numpy())  # Append predictions
-                mlm_truths = np.append(labels.detach().cpu().numpy())
+                mlm_preds = np.append(mlm_preds, mlm_logits[:, 1].detach().cpu().numpy(), axis=0)  # Append predictions
+                mlm_truths = np.append(mlm_truths, labels.detach().cpu().numpy(), axis=0)
         
         eval_loss += temp_eval_loss.cpu().item()
         n_eval_step += 1
