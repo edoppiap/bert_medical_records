@@ -101,6 +101,12 @@ def eval(args, test_dataset, model, output_folder):
 def main():
     args = parse_arguments()
     
+    assert (args.do_train and args.do_eval) \
+        or (args.model_input and args.do_eval) \
+        or (args.do_train and not args.do_eval) \
+        or (args.use_pretrained_bert and args.do_eval), \
+            '--do_eval present without one between --do_train, --model_input or --use_pretrained_bert. You need to train, pass or select a pretrain model to evaluate'
+    
     current_directory = os.path.dirname(os.path.abspath(__file__))
     current_time = datetime.now().strftime("%d-%m-%Y_%H-%M")
     output_path = os.path.join(current_directory, 'logs',current_time)
@@ -111,11 +117,19 @@ def main():
     
     model_path = os.path.join(output_path, 'finetuned_model')
     
-    tokenzier_folder = os.path.join(args.model_input, 'tokenizer')
-    tokenizer = BertTokenizerFast.from_pretrained(tokenzier_folder)
-    
-    model_folder = os.path.join(args.model_input, 'pre_trained_model')
-    model = BertForSequenceClassification.from_pretrained(model_folder)
+    if args.use_pretrained_bert:
+        tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
+        model = BertForSequenceClassification.from_pretrained('bert-base-uncased')
+        
+    else:    
+        tokenzier_folder = os.path.join(args.model_input, 'tokenizer')
+        if os.path.exists(tokenzier_folder):
+            tokenizer = BertTokenizerFast.from_pretrained(tokenzier_folder)
+        else:
+            tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
+        
+        model_folder = os.path.join(args.model_input, 'pre_trained_model')
+        model = BertForSequenceClassification.from_pretrained(model_folder)
     
     dataset = FinetuningDataset(tokenizer, 
                                 file_path=args.input_file, 
@@ -124,10 +138,11 @@ def main():
     
     print(f'{len(train_dataset) = }\n{len(test_dataset) = }')
     
-    loss = train(args, train_dataset, model, model_path)
-    print(f'Average loss = {loss}')
-    
-    result = eval(args, test_dataset, model, output_folder=model_path)
+    if args.do_train:
+        loss = train(args, train_dataset, model, model_path)
+        print(f'Average loss = {loss}')
+    if args.do_eval:
+        result = eval(args, test_dataset, model, output_folder=model_path)
     
     print(f'{result = }')
     

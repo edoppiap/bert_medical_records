@@ -156,7 +156,7 @@ def main():
         or (args.model_input and args.do_eval) \
         or (args.do_train and not args.do_eval) \
         or (args.use_pretrained_bert and args.do_eval), \
-            'To evaluate a model you should pass togheter --do_train or a path for a pretrained model with --model_input or evaluate the pretrained version of bert'
+            '--do_eval present without one between --do_train, --model_input or --use_pretrained_bert. You need to train, pass or select a pretrain model to evaluate'
     
     if args.do_train:
         current_directory = os.path.dirname(os.path.abspath(__file__))
