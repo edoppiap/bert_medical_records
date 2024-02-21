@@ -21,8 +21,8 @@ def get_tokenizer_from_string(tokenizer_name: str, model_path, vocab_size):
   return tokenizer
 
 def get_tokenizer_from_path(path):
-  tokenizer_folder = os.path.join(path, 'tokenizer')
-  return BertTokenizerFast.from_pretrained(tokenizer_folder)
+  # tokenizer_folder = os.path.join(path, 'tokenizer')
+  return BertTokenizerFast.from_pretrained(path)
 
 def train_tokenizer(tokenizer_name, special_tokens, files, vocab_size, max_length, output_path):  
   tokenizer_path = os.path.join(output_path,'tokenizer')

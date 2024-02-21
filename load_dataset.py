@@ -39,8 +39,10 @@ class PreTrainingDataset(torch.utils.data.Dataset):
           if line.startswith('[CLS]'):
             sentences = [s for s in line.lstrip('[CLS]').split('[SEP]') if s.strip() != '']
             num_sentences = len(sentences)
-            if num_sentences > 1:
-              start = random.randint(0, (num_sentences-2))
+            start = 0
+            while start < (num_sentences - 2):
+              # if num_sentences > 1:
+              # start = random.randint(0, (num_sentences-2))
               sentence_a.append(sentences[start])
               if random.random() > .5:
                 sentence_b.append(sentences[start+1])
@@ -48,6 +50,7 @@ class PreTrainingDataset(torch.utils.data.Dataset):
               else:
                 sentence_b.append(self.bag[random.randint(0, self.bag_size-1)])
                 label.append(1)
+              start += 1
 
       inputs = self.tokenizer(sentence_a, sentence_b, return_tensors='pt',
                     max_length=max_length, truncation=True, padding='max_length')
@@ -108,8 +111,7 @@ class PreTrainingDataset(torch.utils.data.Dataset):
 
 def get_loader(tokenizer: BertTokenizer, file_path='dataset.txt', max_length=512, batch_size=16, mlm=.15, nsp=True):
     dataset = PreTrainingDataset(tokenizer, mlm, nsp, file_path, max_length)
-    loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
-    return loader
+    return torch.utils.data.random_split(dataset, [.8,.2])
 
 # if you want to train the tokenizer from scratch (especially if you have custom
 # dataset loaded as datasets object), then run this cell to save it as files
