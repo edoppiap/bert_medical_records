@@ -133,7 +133,7 @@ def eval(args, test_dataset, model, mask_token_id):
         
         eval_loss += temp_eval_loss.cpu().item()
         n_eval_step += 1
-        loop.set_postfix(loss=eval_loss)
+        loop.set_postfix(loss=temp_eval_loss)
         
     eval_loss = eval_loss / n_eval_step
     if nsp_preds is not None:
@@ -152,7 +152,11 @@ def eval(args, test_dataset, model, mask_token_id):
 def main():
     args = parse_arguments()
     
-    assert (args.do_train and args.do_eval) or (args.model_input and args.do_eval) or (args.do_train and not args.do_eval), 'To evaluate a model you should pass togheter --do_train or a path for a pretrained model with --model_input'
+    assert (args.do_train and args.do_eval) \
+        or (args.model_input and args.do_eval) \
+        or (args.do_train and not args.do_eval) \
+        or (args.use_pretrained_bert and args.do_eval), \
+            'To evaluate a model you should pass togheter --do_train or a path for a pretrained model with --model_input or evaluate the pretrained version of bert'
     
     if args.do_train:
         current_directory = os.path.dirname(os.path.abspath(__file__))
@@ -180,8 +184,26 @@ def main():
         model = get_model_from_path(bert_class, os.path.join(args.model_input, 'pre_trained_model'))
         tokenizer = get_tokenizer_from_path(os.path.join(args.model_input, 'tokenizer'))
     elif args.use_pretrained_bert:
+        special_tokens = ['[CLS]','[SEP]','[MASK]']
+        
+        # custom_tokenizer = train_tokenizer(special_tokens=special_tokens,
+        #                             tokenizer_name=args.tokenizer_name,
+        #                             files=[args.input_file], 
+        #                             vocab_size=args.vocab_size, 
+        #                             max_length=args.max_seq_length,
+        #                             output_path=output_path)
+        # new_tokens = [token for token,_ in sorted(custom_tokenizer.vocab.items(), key=lambda x: x[1])]
         tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
-        model = BertForMaskedLM.from_pretrained('bert-base-uncased')
+        # num_add_tokens = tokenizer.add_tokens(new_tokens)
+        # print(f'Added {num_add_tokens} tokens')
+        if bert_class == 'BertForMaskedLM':
+            model = BertForMaskedLM.from_pretrained('bert-base-uncased')
+        elif bert_class == 'BertForNextSentencePrediction':
+            model = BertForNextSentencePrediction.from_pretrained('bert-base-uncased')
+        elif bert_class == 'BertForPreTraining':
+            model = BertForPreTraining.from_pretrained('bert-base-uncased')
+        
+        # model.resize_token_embeddings(len(tokenizer))
     elif args.do_train:
         special_tokens = ['[CLS]','[SEP]','[MASK]']
 
