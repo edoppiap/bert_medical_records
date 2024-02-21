@@ -15,9 +15,18 @@ def get_model_from_string(bert_class_name, config):
     
     return model
 
-def get_model_from_path(path):
-    model_folder = os.path.join(path, 'model')
-    return BertForMaskedLM.from_pretrained(model_folder)
+def get_model_from_path(bert_class:str, path):
+    
+    if bert_class == 'BertForMaskedLM':
+        model = BertForMaskedLM.from_pretrained(path)
+    elif bert_class == 'BertForPreTraining':
+        model = BertForPreTraining.from_pretrained(path)
+    elif bert_class == 'BertForNextSentencePrediction':
+        model = BertForNextSentencePrediction.from_pretrained(path)
+    else:
+        raise ValueError(f'invalid bert class name {bert_class}')
+    
+    return model
 
 def get_bert_model(bert_class_name, vocab_size, max_length, pad_token_id):
     # CLASS THAT CAN BE CHOSED FROM THE UI

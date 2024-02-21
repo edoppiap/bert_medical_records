@@ -116,7 +116,7 @@ def eval(args, test_dataset, model, mask_token_id):
         if args.pre_train_tasks != 'nsp':
             mlm_logits = outputs[1]
             
-            mask = input_ids == mask_token_id
+            mask = (input_ids == mask_token_id).cpu()
 
             if mask.any():
                 # print(f'\n{torch.topk(mlm_logits.detach().cpu()[mask,:], 5, dim=1) = }')
