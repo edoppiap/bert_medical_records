@@ -114,7 +114,7 @@ def main():
     tokenzier_folder = os.path.join(args.model_input, 'tokenizer')
     tokenizer = BertTokenizerFast.from_pretrained(tokenzier_folder)
     
-    model_folder = os.path.join(args.model_input, 'model')
+    model_folder = os.path.join(args.model_input, 'pre_trained_model')
     model = BertForSequenceClassification.from_pretrained(model_folder)
     
     dataset = FinetuningDataset(tokenizer, 
