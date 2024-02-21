@@ -61,8 +61,8 @@ def train(args, train_dataset, model, model_path):
     return loss
 
 def compute_metrics(nsp_preds,nsp_truths, mlm_preds, mlm_truths):
-    print(f'Nsp metrics: {acc_and_f1(nsp_preds,nsp_truths)}')
-    print(f'Mlm metrics: {acc_and_f1(mlm_preds,mlm_truths)}')
+    print(f'Nsp acc: {torch.sum(nsp_preds == nsp_truths).item() / len(nsp_truths)}')
+    print(f'Mlm acc: {torch.sum(mlm_preds == mlm_truths).item() / len(mlm_truths)}')
     
 
 def eval(args, test_dataset, model, output_folder):
@@ -98,11 +98,11 @@ def eval(args, test_dataset, model, output_folder):
             nsp_logits = outputs[1][:, 1]
             
             if nsp_preds is None:
-                nsp_preds = nsp_logits.detach().cpu().numpy()
-                nsp_truths = next_sentence_label[:, 0].detach().cpu().numpy()
+                nsp_preds = nsp_logits.detach().cpu()
+                nsp_truths = next_sentence_label[:, 0].detach().cpu()
             else:
-                nsp_preds = np.append(nsp_preds, nsp_logits.detach().cpu().numpy(), axis=0)
-                nsp_truths = np.append(nsp_truths, next_sentence_label[:, 0].detach().cpu().numpy(), axis=0)
+                nsp_preds = torch.cat((nsp_preds, nsp_logits.detach().cpu()), dim=0)
+                nsp_truths = torch.cat((nsp_truths, next_sentence_label[:, 0].detach().cpu()), dim=0)
         else:
             outputs = model(input_ids=input_ids,
                     token_type_ids = token_type_ids,
@@ -114,11 +114,11 @@ def eval(args, test_dataset, model, output_folder):
         if args.pre_train_tasks != 'nsp':
             mlm_logits = outputs[2 if args.pre_train_tasks == 'mlm_nsp' else 1]
             if mlm_preds is None:
-                mlm_preds = mlm_logits[:, 1].detach().cpu().numpy()  # Extract predictions
-                mlm_truths = labels.detach().cpu().numpy()  # Extract ground truths
+                mlm_preds = mlm_logits[:, 1].detach().cpu()  # Extract predictions
+                mlm_truths = labels.detach().cpu()  # Extract ground truths
             else:
-                mlm_preds = np.append(mlm_preds, mlm_logits[:, 1].detach().cpu().numpy(), axis=0)  # Append predictions
-                mlm_truths = np.append(mlm_truths, labels.detach().cpu().numpy(), axis=0)
+                mlm_preds = torch.cat((mlm_preds, mlm_logits[:, 1].detach().cpu()), dim=0)  # Append predictions
+                mlm_truths = torch.cat((mlm_truths, labels.detach().cpu()), dim=0)
         
         eval_loss += temp_eval_loss.cpu().item()
         n_eval_step += 1
@@ -126,9 +126,16 @@ def eval(args, test_dataset, model, output_folder):
         
     eval_loss = eval_loss / n_eval_step
     if nsp_preds is not None:
-        nsp_preds = np.argmax(nsp_preds, axis=1)
-    if mlm_preds is not None:
-        mlm_preds = np.argmax(mlm_preds)
+        # print(f'Before argmax -> {nsp_preds = }')
+        nsp_preds = torch.argmax(nsp_preds, dim=1)
+        # print(f'After argmax -> {nsp_preds = }')
+    # if mlm_preds is not None:
+    #     print(f'Before argmax -> {mlm_preds = }')
+    #     mlm_preds = torch.argmax(mlm_preds, dim=1)
+    #     print(f'After argmax -> {mlm_preds = }')
+    
+    print(f'{len(nsp_preds) = } - {len(nsp_truths) = }')
+    print(f'{len(mlm_preds) = } - {len(mlm_truths) = }')
     
     result = compute_metrics(nsp_preds,nsp_truths,mlm_preds,mlm_truths)
     return result
@@ -184,8 +191,8 @@ def main():
         print(f'Average loss = {loss}')
     
     if args.do_eval:
-        result = eval(args, test_dataset, model, output_folder=model_path)
-        print(f'{result = }')
+        eval(args, test_dataset, model, output_folder=model_path)
+        # print(f'{result = }')
     
 if __name__ == '__main__':
     main()
