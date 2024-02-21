@@ -128,7 +128,7 @@ def eval(args, test_dataset, model, output_folder):
     if nsp_preds is not None:
         nsp_preds = np.argmax(nsp_preds, axis=1)
     if mlm_preds is not None:
-        mlm_preds = np.argmax(mlm_preds, axis=1)
+        mlm_preds = np.argmax(mlm_preds)
     
     result = compute_metrics(nsp_preds,nsp_truths,mlm_preds,mlm_truths)
     return result
