@@ -20,7 +20,7 @@ if __name__ == '__main__':
     current_directory = os.path.dirname(os.path.abspath(__file__))
     current_time = datetime.now().strftime("%d-%m-%Y_%H-%M")
     output_path = os.path.join(current_directory, 'logs',current_time)
-    if not os.path.exists(output_path):
+    if not os.path.exists(output_path):# Y:Check if a certain path (output_path) exists, and if it does not exist, create it
         os.makedirs(output_path)
         
     print(f'Output files will be saved in folder: {output_path}')
@@ -41,7 +41,7 @@ if __name__ == '__main__':
         special_tokens = ['[CLS]','[SEP]','[MASK]']
 
         tokenizer = train_tokenizer(special_tokens=special_tokens,
-                                    tokenizer_name=args.tokenizer_name,
+                                    tokenizer_name=args.tokenizer_name,# Y:default tokenizer is BertTokenizerFast
                                     files=[text_dataset_path], 
                                     vocab_size=args.vocab_size, 
                                     max_length=args.max_seq_length,

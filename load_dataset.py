@@ -1,3 +1,10 @@
+'''
+class PreTrainingDataset:  Loads and processes text data from a file.
+It extracts sentences from lines starting with '[CLS]' and splits them at '[SEP]'.
+Generates input data for the model. It supports Masked Language Modeling and Next Sentence Prediction pre-training tasks.
+
+function get_loader:Creates and returns a DataLoader for the pre-training dataset.
+'''
 from datasets import load_dataset, DatasetDict
 from transformers import BertTokenizer
 
@@ -50,7 +57,9 @@ class PreTrainingDataset(torch.utils.data.Dataset):
     self.inputs = self.create_inputs(file_path, max_length, mlm, nsp)
 
   def create_inputs(self, file_path, max_length, mlm, nsp):
-    
+    # When nsp is True, the function reads a file and splits the text into pairs of sentences (Sentence A and Sentence B). 
+    # It randomly decides whether Sentence B is the actual next sentence in the document (label 0) or a random sentence 
+    # (label 1). These sentences are then tokenized.
     if nsp:
       sentence_a = []
       sentence_b = []
@@ -78,17 +87,19 @@ class PreTrainingDataset(torch.utils.data.Dataset):
                     max_length=max_length, truncation=True, padding='max_length')
       inputs['next_sentence_label'] = torch.LongTensor([label]).T
     else:
+      #If nsp is False, the entire document is tokenized as a single sequence without splitting into sentence pairs.
       documents = []
       
       with open(file_path, 'r', encoding='utf-8') as file:
         for line in file:
           if line.startswith('[CLS]'):
             documents.append(line)
-      
+      #The function tokenizes the inputs using the specified BERT tokenizer. It pads or truncates sequences to max_length.
       inputs = self.tokenizer(documents, return_tensors='pt',
                               max_length=max_length, truncation=True, padding='max_length',
                               add_special_tokens=False) # special tokens already present in the dataset
 
+#For MLM, it duplicates the input IDs to create labels
     inputs['labels'] = inputs.input_ids.detach().clone()
     vocab_ids = list(self.tokenizer.vocab.values())
     rand = torch.rand(inputs.input_ids.shape)

@@ -1,3 +1,6 @@
+'''
+Setting up BERT models with specific configurations and classes, tailored for different tasks like (MLM), (NSP) or (MLM and NSP).
+'''
 from transformers import BertConfig, BertForMaskedLM, BertForPreTraining, BertForNextSentencePrediction
 import os
 
