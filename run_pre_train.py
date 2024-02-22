@@ -159,11 +159,16 @@ def main():
             '--do_eval present without one between --do_train, --model_input or --use_pretrained_bert. You need to train, pass or select a pretrain model to evaluate'
     
     if args.do_train:
-        current_directory = os.path.dirname(os.path.abspath(__file__))
-        current_time = datetime.now().strftime("%d-%m-%Y_%H-%M")
-        output_path = os.path.join(current_directory, 'logs',current_time)
-        if not os.path.exists(output_path):
-            os.makedirs(output_path)
+        if args.output_dir:
+            output_path = args.output_dir
+            if not os.path.exists(output_path):
+                os.makedirs(output_path)
+        else:
+            current_directory = os.path.dirname(os.path.abspath(__file__))
+            current_time = datetime.now().strftime("%d-%m-%Y_%H-%M")
+            output_path = os.path.join(current_directory, 'logs',current_time)
+            if not os.path.exists(output_path):
+                os.makedirs(output_path)
 
         print(f'Output files will be saved in folder: {output_path}')
         
