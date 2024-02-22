@@ -62,8 +62,10 @@ def train(args, train_dataset, model, model_path):
     return loss
 
 def compute_metrics(nsp_preds,nsp_truths, mlm_preds, mlm_truths):
-    print(f'Nsp acc: {torch.sum(nsp_preds == nsp_truths).item() / len(nsp_truths)}')
-    print(f'Mlm acc: {torch.sum(mlm_preds == mlm_truths).item() / len(mlm_truths)}')
+    if nsp_preds is not None:
+        print(f'Nsp acc: {torch.sum(nsp_preds == nsp_truths).item() / len(nsp_truths)}')
+    if mlm_preds is not None:
+        print(f'Mlm acc: {torch.sum(mlm_preds == mlm_truths).item() / len(mlm_truths)}')
     # print(f'recall_at_k: {recall_score(mlm_truths.numpy(), top_k_indeces.numpy(), average="samples")}')
     
 
