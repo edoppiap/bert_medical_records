@@ -188,7 +188,11 @@ def main():
         
     if args.model_input:
         model = get_model_from_path(bert_class, os.path.join(args.model_input, 'pre_trained_model'))
-        tokenizer = get_tokenizer_from_path(os.path.join(args.model_input, 'tokenizer'))
+        tokenizer_path = os.path.join(args.model_input, 'tokenizer')
+        if os.path.exists(tokenizer_path):
+            tokenizer = get_tokenizer_from_path()
+        else:
+            tokenizer = tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
     elif args.use_pretrained_bert:
         special_tokens = ['[CLS]','[SEP]','[MASK]']
         
