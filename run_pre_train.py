@@ -1,6 +1,5 @@
 from transformers import BertForMaskedLM, BertConfig, BertForPreTraining, BertForNextSentencePrediction
 from transformers import BertTokenizerFast
-from datasets import load_metric
 from transformers.data.metrics import acc_and_f1
 # from sklearn.metrics import recall_score
 
@@ -99,7 +98,7 @@ def eval(args, test_dataset, model, mask_token_id):
                     next_sentence_label = next_sentence_label,
                     labels = labels)
             
-            nsp_logits = outputs[2]
+            nsp_logits = outputs[2 if args.pre_train_task == 'mlm_nsp' else 1]
             
             if nsp_preds is None:
                 nsp_preds = nsp_logits.detach().cpu()
@@ -118,7 +117,7 @@ def eval(args, test_dataset, model, mask_token_id):
         if args.pre_train_tasks != 'nsp':
             mlm_logits = outputs[1]
             
-            mask = (input_ids == mask_token_id).cpu()
+            mask = (input_ids != labels).cpu()
 
             if mask.any():
                 # print(f'\n{torch.topk(mlm_logits.detach().cpu()[mask,:], 5, dim=1) = }')
@@ -135,7 +134,7 @@ def eval(args, test_dataset, model, mask_token_id):
         
         eval_loss += temp_eval_loss.cpu().item()
         n_eval_step += 1
-        loop.set_postfix(loss=temp_eval_loss)
+        loop.set_postfix(loss=temp_eval_loss.item())
         
     eval_loss = eval_loss / n_eval_step
     if nsp_preds is not None:
@@ -200,9 +199,12 @@ def main():
         #                             max_length=args.max_seq_length,
         #                             output_path=output_path)
         # new_tokens = [token for token,_ in sorted(custom_tokenizer.vocab.items(), key=lambda x: x[1])]
+        
         tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
+        
         # num_add_tokens = tokenizer.add_tokens(new_tokens)
         # print(f'Added {num_add_tokens} tokens')
+        
         if bert_class == 'BertForMaskedLM':
             model = BertForMaskedLM.from_pretrained('bert-base-uncased')
         elif bert_class == 'BertForNextSentencePrediction':
@@ -236,7 +238,6 @@ def main():
     
     if args.do_eval:
         eval(args, test_dataset, model, mask_token_id=tokenizer.mask_token_id)
-        # print(f'{result = }')
     
 if __name__ == '__main__':
     main()

@@ -5,7 +5,7 @@ Generates input data for the model. It supports Masked Language Modeling and Nex
 
 function get_loader:Creates and returns a DataLoader for the pre-training dataset.
 '''
-from datasets import load_dataset, DatasetDict
+# from datasets import load_dataset, DatasetDict
 from transformers import BertTokenizer
 
 import os, random
@@ -30,7 +30,8 @@ class FinetuningDataset(torch.utils.data.Dataset):
     
   def create_inputs(self, docs, labels, max_length):
     inputs = self.tokenizer(docs, return_tensors='pt',
-                  max_length=max_length, truncation=True, padding='max_length')
+                  max_length=max_length, truncation=True, padding='max_length',
+                  add_special_tokens=False) # special tokens already present in the dataset
     inputs['labels'] = torch.LongTensor(labels).T
     
     return inputs
@@ -155,27 +156,27 @@ def dataset_to_text(dataset, output_filename="data.txt"):
         for t in dataset["text"]:
             print(t, file=f)
 
-def dataset_loader(input_file, train_file_name, test_file_name, eval_file_name, output_path):
-    #file_path = os.path.join(input_file, text_generated_name)
-    dataset = get_dataset('text', data_files=input_file, split='train')
+# def dataset_loader(input_file, train_file_name, test_file_name, eval_file_name, output_path):
+#     #file_path = os.path.join(input_file, text_generated_name)
+#     dataset = get_dataset('text', data_files=input_file, split='train')
     
-    d_temp = dataset.train_test_split(test_size=.15, shuffle=True)
-    d_temp_2 = d_temp['test'].train_test_split(test_size=10, shuffle=True)
+#     d_temp = dataset.train_test_split(test_size=.15, shuffle=True)
+#     d_temp_2 = d_temp['test'].train_test_split(test_size=10, shuffle=True)
 
-    d = DatasetDict({
-        'train': d_temp['train'],
-        'test': d_temp_2['train'],
-        'eval': d_temp_2['test']})
+#     d = DatasetDict({
+#         'train': d_temp['train'],
+#         'test': d_temp_2['train'],
+#         'eval': d_temp_2['test']})
     
-    train_path = os.path.join(output_path,train_file_name)
-    test_path = os.path.join(output_path,test_file_name)
-    eval_path = os.path.join(output_path, eval_file_name)
+#     train_path = os.path.join(output_path,train_file_name)
+#     test_path = os.path.join(output_path,test_file_name)
+#     eval_path = os.path.join(output_path, eval_file_name)
                     
-    # save the training set to train.txt
-    dataset_to_text(d["train"], train_path)
-    # save the testing set to test.txt
-    dataset_to_text(d["test"], test_path)
-    # save the eval set to eval.txt
-    dataset_to_text(d["eval"], eval_path)
+#     # save the training set to train.txt
+#     dataset_to_text(d["train"], train_path)
+#     # save the testing set to test.txt
+#     dataset_to_text(d["test"], test_path)
+#     # save the eval set to eval.txt
+#     dataset_to_text(d["eval"], eval_path)
     
-    return d, [train_path]
+#     return d, [train_path]
