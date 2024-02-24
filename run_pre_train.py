@@ -98,7 +98,7 @@ def eval(args, test_dataset, model, mask_token_id):
                     next_sentence_label = next_sentence_label,
                     labels = labels)
             
-            nsp_logits = outputs[2 if args.pre_train_task == 'mlm_nsp' else 1]
+            nsp_logits = outputs[2 if args.pre_train_tasks == 'mlm_nsp' else 1]
             
             if nsp_preds is None:
                 nsp_preds = nsp_logits.detach().cpu()
