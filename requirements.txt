@@ -6,4 +6,3 @@ accelerate>=0.20.1
 streamlit>=1.29.0
 stqdm
 torch
-Gooey

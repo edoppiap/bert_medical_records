@@ -8,7 +8,6 @@ from datetime import datetime
 import torch
 from tqdm import tqdm
 import numpy as np
-from gooey import Gooey
 
 from custom_parser import parse_arguments
 from load_dataset import FinetuningDataset
@@ -99,7 +98,6 @@ def eval(args, test_dataset, model, output_folder):
     
     return result
 
-@Gooey
 def main():
     args = parse_arguments()
     
