@@ -1,6 +1,12 @@
-from transformers import TrainingArguments, Trainer
+from transformers import TrainingArguments, Trainer, AdamW, BertModel
+import os
+from tqdm import tqdm
+import torch
+
+from load_dataset import PreTrainingDataset
 
 def pre_train(model, data_collator, train_dataset, test_dataset, output_path):
+    print('Defining training Arguments...')
     training_args = TrainingArguments(
         output_dir=output_path,          # output directory to where save model checkpoint
         evaluation_strategy="steps",    # evaluate each `logging_steps` steps
@@ -16,6 +22,7 @@ def pre_train(model, data_collator, train_dataset, test_dataset, output_path):
         # save_total_limit=3,           # whether you don't have much space so you let only 3 model weights saved in the disk
     )
     
+    print('Do the pre-train...')
     # initialize the trainer and pass everything to it
     trainer = Trainer(
         model=model,
@@ -24,3 +31,48 @@ def pre_train(model, data_collator, train_dataset, test_dataset, output_path):
         train_dataset=train_dataset,
         eval_dataset=test_dataset,
     )
+    
+    trainer.train()
+    print('End pre-train.')
+    
+    trainer.save_model(os.path.join(output_path, 'model'))
+    
+def run_lm_pretrain(model, optim, loader, output_path, n_epochs: int = 2):
+    
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    
+    model.to(device)
+    model.train()
+    
+    for epoch in range(n_epochs):
+        loop = tqdm(loader, leave=True)
+        for batch in loop:
+            optim.zero_grad()
+
+            input_ids = batch['input_ids'].to(device)
+            token_type_ids = batch['token_type_ids'].to(device)
+            attention_mask = batch['attention_mask'].to(device)
+            labels = batch['labels'].to(device)
+            
+            if 'next_sentence_label' in batch.keys():
+                next_sentence_label = batch['next_sentence_label'].to(device)
+                outputs = model(input_ids=input_ids,
+                        token_type_ids = token_type_ids,
+                        attention_mask = attention_mask,
+                        next_sentence_label = next_sentence_label,
+                        labels = labels)
+            else:
+                outputs = model(input_ids=input_ids,
+                        token_type_ids = token_type_ids,
+                        attention_mask = attention_mask,
+                        labels = labels)
+            
+            loss = outputs.loss
+            loss.backward()
+            optim.step()
+            
+            loop.set_description(f'Epoch {epoch}')
+            loop.set_postfix(loss=loss.item())
+            
+    model_path = os.path.join(output_path,'model')
+    model.save_pretrained(model_path)

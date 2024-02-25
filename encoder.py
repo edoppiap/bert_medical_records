@@ -27,7 +27,7 @@ def encode_without_truncation(examples, tokenizer):
     """Mapping function to tokenize the sentences passed without truncation"""
     return tokenizer(examples["text"], return_special_tokens_mask=True)
     
-def encode(d, tokenizer, max_length, truncate_longer_samples: bool = False):
+def encode(d, tokenizer, max_length, truncate_longer_samples: bool = True):
     # the encode function will depend on the truncate_longer_samples variable
     encode = (
         lambda examples: encode_with_truncation(examples, tokenizer, max_length)
@@ -54,11 +54,10 @@ def encode(d, tokenizer, max_length, truncate_longer_samples: bool = False):
     # To speed up this part, we use multiprocessing. See the documentation of the map method for more information:
     # https://huggingface.co/docs/datasets/package_reference/main_classes.html#datasets.Dataset.map
     if not truncate_longer_samples:
-        group_text = (lambda examples: group_texts(examples, max_length))
         
-        train_dataset = train_dataset.map(group_text, batched=True,
+        train_dataset = train_dataset.map(group_texts, max_length, batched=True,
                                         desc=f"Grouping texts in chunks of {max_length}")
-        test_dataset = test_dataset.map(group_text, batched=True,
+        test_dataset = test_dataset.map(group_texts, max_length, batched=True,
                                     desc=f"Grouping texts in chunks of {max_length}")
         # convert them from lists to torch tensors
         train_dataset.set_format("torch")

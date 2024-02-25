@@ -10,6 +10,27 @@ def parse_arguments():
     #
     parser.add_argument('--vocab_size', type=int, default=30_522, help=' ')
     
+    parser.add_argument('--tokenizer_name', type=str, default='BertTokenizerFast',
+                        choices=['BertTokenizerFast'],
+                        help='Tokenizer used during pre-train')
+    parser.add_argument('--pre_trained_tokenizer_path', type=str, default=None,
+                        help='Use this argument to pass the folder path for an already pretrained version of the tokenizer')
+    parser.add_argument('--bert_class', type=str, default='BertForMaskedLM',
+                        choices=['BertForMaskedLM', 'BertForNextSentencePrediction', 'BertForPreTraining'])
+    parser.add_argument('--pre_train_tasks', type=str, default=None,
+                        choices=['mlm', 'nsp', 'mlm_nsp'])
+    parser.add_argument('--mlm_percentage', type=float, default=.15,
+                        help='Percentage of token to mask in the maskedlm task')
+    parser.add_argument('--text_name', type=str, default='text_dataset.txt')
+    parser.add_argument('--model_input', type=str, 
+                        help='Use this argument to pass the folder where find the pre-trained model')
+    parser.add_argument('--optimizer', type=str, default='AdamW', choices=['AdamW'],
+                        help='Name of optimizer to use')
+    parser.add_argument('--num_epochs', type=int, default=2,
+                        help='Number of epochs with which to train the model')
+    parser.add_argument('--use_pretrained_bert', action='store_true',
+                        help='This will initialize the bert model as already pre-trained')
+    
     #-----------------------------------------------------------------#
     # PRETRAINING ARGUMENTS
     #
@@ -18,12 +39,12 @@ def parse_arguments():
                         help='The config json file corresponding to the pre-trained BERT model. '+\
                             'This specifies the model architecture.')
     parser.add_argument('--input_file', type=str, default=None,
-                        help='Input TF example files (can be a glob or comma separated).')
+                        help='Input csv or txt input files (can be a glob or comma separated).')
     parser.add_argument('--output_dir', type=str, default=None,
                         help='The output directory where the model checkpoints will be written.')
     parser.add_argument('--init_checkpoint', type=str, default=None, 
                         help='Initial checkpoint (usually from a pre-trained BERT model).')
-    parser.add_argument('--max_seq_length', type=int, default=128, choices=[128, 512],
+    parser.add_argument('--max_seq_length', type=int, default=512, choices=[128, 512],
                         help='The maximum total input sequence length after WordPiece tokenization. '+\
                             'Sequences longer than this will be truncated, and sequences shorter '+\
                              'than this will be padded. Must match data generation.')
@@ -34,7 +55,7 @@ def parse_arguments():
                         help='Whether to run training.')
     parser.add_argument('--do_eval', action='store_true', 
                         help='Whether to run eval on the dev set.')
-    parser.add_argument('--train_batch_size', type=int, default=32,
+    parser.add_argument('--train_batch_size', type=int, default=16,
                         help='Total batch size for training.')
     parser.add_argument('--eval_batch_size', type=int, default=9,
                         help='Total batch size for eval.')
