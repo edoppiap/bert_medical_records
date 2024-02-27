@@ -13,6 +13,11 @@ from collator import define_collator
 from pre_train import pre_train
 from eval_mlm import calculate_mlm_recall
 
+'''
+    This code is not working anymore but we leave it because we explored the possibility to use streamlit for an UI interface.
+    This structure will serve as basis if streamlit will be the end choice for the UI
+'''
+
 def file_updated():
     st.session_state.upload = 1
 

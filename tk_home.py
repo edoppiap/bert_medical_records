@@ -4,6 +4,10 @@ from tkinter import scrolledtext
 from tkinter import ttk
 import pandas as pd
 
+'''
+    This is an exploration to use tkinter as UI interface for the pretrain
+'''
+
 def center_window(window):
     # Get the screen width and height
     screen_width = window.winfo_screenwidth()
