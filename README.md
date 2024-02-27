@@ -63,4 +63,4 @@ You can specify different parameters, like `--train_batch_size`, and if you want
 !python run_glue.py -h
 ```
 
-You can find the some run examples in the `examples.ipynb` notebook.
+You can find some examples in the `examples.ipynb` notebook.
