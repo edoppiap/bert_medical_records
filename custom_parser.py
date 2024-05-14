@@ -30,6 +30,8 @@ def parse_arguments():
                         help='Number of epochs with which to train the model')
     parser.add_argument('--use_pretrained_bert', action='store_true',
                         help='This will initialize the bert model as already pre-trained')
+    parser.add_argument('--predict', action='store_true', 
+                        help='Whether to create prediction out of the input data (it need a finetuned model)')
     
     #-----------------------------------------------------------------#
     # PRETRAINING ARGUMENTS

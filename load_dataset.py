@@ -11,6 +11,32 @@ from transformers import BertTokenizer
 import os, random
 import torch
 
+class InferDataset(torch.utils.data.Dataset):
+  def __init__(self, tokenizer, file_path='infer_dataset.txt', max_length=512):
+    assert os.path.isfile(file_path)
+    self.tokenizer = tokenizer
+    with open(file_path, 'r', encoding='utf-8') as file:
+      docs = []
+      patients = []
+      for line in file:
+        if line != '\n':
+          patients.append(line.split(',')[0])
+          docs.append(line.split(',')[1])
+      self.inputs = self.create_inputs(docs, max_length)
+      self.patients = patients
+        
+  def create_inputs(self, docs, max_length):
+    inputs = self.tokenizer(docs, return_tensors='pt',
+                  max_length=max_length, truncation=True, padding='max_length',
+                  add_special_tokens=False) # special tokens already present in the dataset
+    return inputs
+  
+  def __len__(self):
+    return len(self.inputs.input_ids)
+  
+  def __getitem__(self,idx):
+    return {key: torch.tensor(val[idx]) for key,val in self.inputs.items()}        
+
 class FinetuningDataset(torch.utils.data.Dataset):
   def __init__(self, tokenizer, file_path='finetune_dataset.txt', max_length=512):
     assert os.path.isfile(file_path)
