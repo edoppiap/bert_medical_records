@@ -140,7 +140,8 @@ def main():
             '--do_eval present without one between --do_train, --model_input or --use_pretrained_bert. You need to train, pass or select a pretrain model to evaluate'
             
     assert (args.predict and args.model_input) \
-        or (args.predict and args.use_pretrained_bert), \
+        or (args.predict and args.use_pretrained_bert) \
+        or not args.predict, \
             '--predict present without one between --model_input or --use_pretrained_bert. You need to pass a pretrained model to infer'
     
     if args.output_dir:
