@@ -176,7 +176,7 @@ def main():
         elif args.predict:
             model = BertForSequenceClassification.from_pretrained(args.model_input)
     
-    if not predict:
+    if not args.predict:
         dataset = FinetuningDataset(tokenizer, 
                                 file_path=args.input_file, 
                                 max_length=args.max_seq_length)
