@@ -14,7 +14,7 @@ from custom_parser import parse_arguments
 from modeling import get_bert_model, get_model_from_path
 from tokenizer import train_tokenizer, get_tokenizer_from_path
 from optimizer import get_optimizer
-from load_dataset import PreTrainingDataset
+from load_dataset import PreTrainingDataset, NewPreTrainingDataset
 
 def train(args, train_dataset, model, model_path):
     loader = DataLoader(train_dataset, batch_size=args.train_batch_size,
@@ -230,10 +230,9 @@ def main():
         model = get_bert_model(bert_class, args.vocab_size, args.max_seq_length,
                                pad_token_id=tokenizer.convert_tokens_to_ids(tokenizer.pad_token))
     
-    dataset = PreTrainingDataset(tokenizer,
+    dataset = NewPreTrainingDataset(tokenizer,
                                  file_path=args.input_file,
-                                 mlm=args.mlm_percentage if bert_class == 'BertForMaskedLM' or bert_class == 'BertForPreTraining' else 0,
-                                 nsp= bert_class == 'BertForPreTraining' or bert_class == 'BertForNextSentencePrediction')
+                                 mlm=args.mlm_percentage if bert_class == 'BertForMaskedLM' or bert_class == 'BertForPreTraining' else 0)
     train_dataset, test_dataset = torch.utils.data.random_split(dataset, [.8,.2])
     
     if args.do_train:

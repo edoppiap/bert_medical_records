@@ -9,6 +9,7 @@ from stqdm import stqdm #Streamlit-compatible progress bar
 import streamlit as st
 from datetime import datetime, timedelta
 import argparse
+import random
 
 def create__infer_from_data(dataframe_or_file_path, output_folder, output_name = 'infer_dataset.txt', streamlit=False):
     #output_path = os.path.join(dataframe_or_folder, text_generated_name)
@@ -110,6 +111,42 @@ def create_finetune_text_from_data(output_folder, file_path='/content/drive/MyDr
         for di,label in tqdm(zip(selected_di,labels), desc='Creating dataset for finetuning'):
             sentences = [' '.join(item) for item in di]
             file.write('[CLS] ' + ' [SEP] '.join(sentences) + f' <end> {label}\n\n')
+            
+def create_nsp_dataset(file_path, output_folder, output_name='nsp_dataset.txt'):
+    bag = []
+    with open(file_path, 'r', encoding='utf-8') as file:
+        for line in file:
+            if line.startswith('[CLS]'):
+                sentences = [s for s in line.lstrip('[CLS]').split('[SEP]') if s.strip() != '']
+                bag.extend(sentences)
+    bag_size = len(bag)
+    sentences_a = []
+    sentences_b = []
+    labels = []
+    
+    with open(file_path, 'r', encoding='utf-8') as file:
+        for line in file:
+            if line.startswith('[CLS]'):
+                sentences = [s for s in line.lstrip('[CLS]').split('[SEP]') if s.strip() != '']
+                num_sentences = len(sentences)
+                start = 0
+                while start < (num_sentences - 2):
+                    sentences_a.append(sentences[start])
+                    if random.random() > .5:
+                        sentences_b.append(sentences[start+1])
+                        labels.append(0)
+                    else:
+                        sentences_b.append(bag[random.randint(0, bag_size-1)])
+                        labels.append(1)
+                    start += 1
+    
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+    output_file_path = os.path.join(output_folder, output_name)
+    
+    with open(output_file_path, 'w', encoding='utf-8') as file:
+        for sentence_a, sentence_b, label in tqdm(zip(sentences_a, sentences_b, labels), desc='Creating nsp dataset'):
+            file.write(f'[CLS] {sentence_a} [SEP] {sentence_b} <end> {label}\n\n')
 
 def create_text_from_data(dataframe_or_file_path, output_folder, output_name = 'text_dataset.txt', streamlit=False):
     #output_path = os.path.join(dataframe_or_folder, text_generated_name)
@@ -169,6 +206,7 @@ if __name__ == '__main__':
     parser.add_argument('--create_pretrain_text_file', action='store_true')
     parser.add_argument('--create_finetuning_text_data', action='store_true')
     parser.add_argument('--create_infer_text_data', action='store_true')
+    parser.add_argument('--create_nsp_text_file', action='store_true')
     
     args = parser.parse_args()
 
@@ -184,3 +222,8 @@ if __name__ == '__main__':
         create__infer_from_data(args.file_path, 
                               output_folder=args.output_folder, 
                               output_name=args.output_name)
+        
+    if args.create_nsp_text_file:
+        create_nsp_dataset(args.file_path,
+                           output_folder=args.output_folder,
+                           output_name=args.output_name)
