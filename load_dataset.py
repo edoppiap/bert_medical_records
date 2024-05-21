@@ -104,7 +104,7 @@ class NewFinetuningDataset(torch.utils.data.Dataset):
                             add_special_tokens=False) # special tokens already present in the dataset
     inputs['labels'] = torch.LongTensor(label).T
     
-    return {key: torch.tensor(val[0]) for key,val in inputs.items()}
+    return {key: torch.tensor(val) for key,val in inputs.items()}
     
 class NewPreTrainingDataset(torch.utils.data.Dataset):
   def __init__(self, tokenizer, mlm: float, file_path='nsp_dataset.txt', max_length=512):
