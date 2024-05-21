@@ -99,7 +99,7 @@ class NewFinetuningDataset(torch.utils.data.Dataset):
     doc_end = line.find(b'<end>')
     doc,label = line[:doc_end], int(line[doc_end+len(b'<end>'):].decode('utf-8'))
     
-    inputs = self.tokenizer(doc, return_tensors='pt',
+    inputs = self.tokenizer(doc.decode('utf-8'), return_tensors='pt',
                             max_length=self.max_length, truncation=True, padding='max_length',
                             add_special_tokens=False) # special tokens already present in the dataset
     inputs['labels'] = torch.LongTensor(label).T
