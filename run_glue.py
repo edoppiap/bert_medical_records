@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 from custom_parser import parse_arguments
-from load_dataset import FinetuningDataset, InferDataset
+from load_dataset import NewFinetuningDataset, InferDataset
 from optimizer import get_optimizer
 
 def train(args, train_dataset, model, model_path):
@@ -177,7 +177,7 @@ def main():
             model = BertForSequenceClassification.from_pretrained(args.model_input)
     
     if not args.predict:
-        dataset = FinetuningDataset(tokenizer, 
+        dataset = NewFinetuningDataset(tokenizer, 
                                 file_path=args.input_file, 
                                 max_length=args.max_seq_length)
     else:
