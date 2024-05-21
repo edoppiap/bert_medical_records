@@ -188,8 +188,6 @@ def main():
     if not args.predict:
         train_dataset, test_dataset = torch.utils.data.random_split(dataset, [.8,.2])
     
-        print(f'{len(train_dataset) = }\n{len(test_dataset) = }')
-    
     if args.do_train:
         loss = train(args, train_dataset, model, model_path)
         print(f'Average loss = {loss}')
