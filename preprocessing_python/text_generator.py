@@ -102,8 +102,7 @@ def create_finetune_text_from_data(output_folder, file_path='data\PHeP_simulated
 
             diagnoses.append(diagnosis)
             
-            hospitalisation = '-'.join([str(row['GG_RIC']),str(row['MM_RIC']),str(row['AA_RIC'])])
-            hospitalisations.append(datetime.strptime(hospitalisation, '%d-%m-%y'))
+            hospitalisations.append(datetime.strptime(str(row['date_admission']), "%Y-%m-%d"))
     
         all_diagnoses.append(diagnoses)
         all_hospitalisations.append(hospitalisations)
