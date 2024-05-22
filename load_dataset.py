@@ -10,6 +10,34 @@ from transformers import BertTokenizer
 
 import os, random
 import torch
+from tqdm import tqdm
+import mmap
+
+class InferDataset(torch.utils.data.Dataset):
+  def __init__(self, tokenizer, file_path='infer_dataset.txt', max_length=512):
+    assert os.path.isfile(file_path)
+    self.tokenizer = tokenizer
+    with open(file_path, 'r', encoding='utf-8') as file:
+      docs = []
+      patients = []
+      for line in file:
+        if line != '\n':
+          patients.append(line.split(',')[0])
+          docs.append(line.split(',')[1])
+      self.inputs = self.create_inputs(docs, max_length)
+      self.patients = patients
+        
+  def create_inputs(self, docs, max_length):
+    inputs = self.tokenizer(docs, return_tensors='pt',
+                  max_length=max_length, truncation=True, padding='max_length',
+                  add_special_tokens=False) # special tokens already present in the dataset
+    return inputs
+  
+  def __len__(self):
+    return len(self.inputs.input_ids)
+  
+  def __getitem__(self,idx):
+    return {key: torch.tensor(val[idx]) for key,val in self.inputs.items()}        
 
 class FinetuningDataset(torch.utils.data.Dataset):
   def __init__(self, tokenizer, file_path='finetune_dataset.txt', max_length=512):
@@ -41,6 +69,118 @@ class FinetuningDataset(torch.utils.data.Dataset):
 
   def __getitem__(self,idx):
     return {key: torch.tensor(val[idx]) for key,val in self.inputs.items()}
+  
+class NewFinetuningDataset(torch.utils.data.Dataset):
+  def __init__(self, tokenizer, file_path='finetune_dataset.txt', max_length=512):
+    assert os.path.isfile(file_path)
+    self.tokenizer = tokenizer
+    self.max_length = max_length
+    self.file_path = file_path
+    with open(file_path, 'r') as f:
+      self.data_mmap = mmap.mmap(f.fileno(), length=0, access=mmap.ACCESS_READ)
+    self.doc_offsets = []
+    with open(file_path, 'rb') as f:
+      offset = 0
+      for line in f:
+        if line.startswith(b'[CLS]'):
+          self.doc_offsets.append(offset)
+        offset += len(line)
+    self.n_docs = len(self.doc_offsets)
+    
+  def __len__(self):
+    return self.n_docs
+  
+  def __getitem__(self, idx):
+    line_start = self.doc_offsets[idx]
+    line_end = self.doc_offsets[idx + 1] if idx < self.n_docs - 1 else len(self.data_mmap)
+    
+    line = self.data_mmap[line_start:line_end]
+    
+    doc_end = line.find(b'<end>')
+    doc,label = line[:doc_end], int(line[doc_end+len(b'<end>'):].decode('utf-8'))
+    
+    inputs = self.tokenizer(doc.decode('utf-8'), return_tensors='pt',
+                            max_length=self.max_length, truncation=True, padding='max_length',
+                            add_special_tokens=False) # special tokens already present in the dataset
+    inputs['labels'] = torch.LongTensor([label]).T
+    
+    return {key: torch.tensor(val[0]) for key,val in inputs.items()}
+  
+  def __del__(self):
+    self.data_mmap.close()
+    
+class NewPreTrainingDataset(torch.utils.data.Dataset):
+  def __init__(self, tokenizer, mlm: float, file_path='nsp_dataset.txt', max_length=512):
+    self.tokenizer = tokenizer
+    self.mlm = mlm
+    self.max_length = max_length
+    self.file_path = file_path
+    with open(file_path, 'r') as f:
+      self.data_mmap = mmap.mmap(f.fileno(), length=0, access=mmap.ACCESS_READ)
+    self.doc_offsets = []
+    with open(file_path, 'rb') as f:
+      offset = 0
+      for line in f:
+        if line.startswith(b'[CLS]'):
+          self.doc_offsets.append(offset)
+        offset += len(line)
+    self.n_docs = len(self.doc_offsets)
+    
+  
+  def __len__(self):
+    return self.n_docs
+  
+  def __getitem__(self, idx):
+    doc_start = self.doc_offsets[idx]
+    doc_end = self.doc_offsets[idx + 1] if idx < self.n_docs - 1 else len(self.data_mmap)
+  
+    doc = self.data_mmap[doc_start:doc_end]
+    
+    pair_end = doc.find(b'<end>')
+    pair, label = doc[:pair_end], int(doc[pair_end+len(b'<end>'):].decode('utf-8'))
+    
+    sentence_a, sentence_b = pair.split(b'[SEP]')
+    
+    inputs = self.tokenizer(sentence_a.decode('utf-8'), sentence_b.decode('utf-8'), return_tensors='pt',
+                             max_length=self.max_length, truncation=True, padding='max_length')
+    inputs['next_sentence_label'] = torch.LongTensor([label]).T
+    
+    inputs['labels'] = inputs.input_ids.detach().clone()
+    vocab_ids = list(self.tokenizer.vocab.values())
+    rand = torch.rand(inputs.input_ids.shape)
+    # print(f'{rand = }')
+
+    # mask 15% of token randomly
+    # don't mask the CLS token (0)
+    # don't mask the padding token (102)
+    # don't mask the SEP token (1)
+    mask_arr = (rand < self.mlm) * (inputs.input_ids != self.tokenizer.convert_tokens_to_ids('[CLS]')) * (inputs.input_ids != self.tokenizer.convert_tokens_to_ids('[SEP]')) * (inputs.input_ids != self.tokenizer.convert_tokens_to_ids('[PAD]'))
+
+    for i in range(inputs.input_ids.shape[0]):
+
+      selection = torch.flatten(mask_arr[i].nonzero()).tolist()
+      # inputs.input_ids[i, selection] = self.tokenizer.convert_tokens_to_ids('[MASK]')
+
+      num_tokens = len(selection)
+      num_mask = int(.8 * num_tokens)
+      num_random_word = int(.1 * num_tokens)
+
+      random.shuffle(selection)
+
+      # Replace 80% of tokens with the mask token
+      for j in range(num_mask):
+          inputs.input_ids[i, selection[j]] = self.tokenizer.convert_tokens_to_ids('[MASK]')  # mask token id
+
+      # Replace 10% of tokens with a random word
+      for j in range(num_mask, num_mask + num_random_word):
+          inputs.input_ids[i, selection[j]] = vocab_ids[random.randint(0, len(vocab_ids) - 1)]
+
+      # The remaining 10% of tokens are unchanged
+    
+    return {key: torch.tensor(val[0]) for key,val in inputs.items()}
+  
+  def __del__(self):
+      self.data_mmap.close()
           
 
 class PreTrainingDataset(torch.utils.data.Dataset):
