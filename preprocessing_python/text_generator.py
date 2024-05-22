@@ -31,17 +31,17 @@ def create__infer_from_data(dataframe_or_file_path, output_folder, output_name =
         result = f'{str(keyone)}, [CLS] '
         #result = str(keyone) + '\n'
         for _, row in patient.iterrows():
-            result = result + f"{row['DIA_PRIN']}"
-            if not pd.isna(row['DIA_UNO']):
-                result = result + f' {row["DIA_UNO"]}'
-            if not pd.isna(row['DIA_DUE']):
-                result = result + f' {row["DIA_DUE"]}'
-            if not pd.isna(row['DIA_TRE']):
-                result = result + f' {row["DIA_TRE"]}'
-            if not pd.isna(row['DIA_QUATTRO']):
-                result = result + f' {row["DIA_QUATTRO"]}'
-            if not pd.isna(row['DIA_CINQUE']):
-                result = result + f' {row["DIA_CINQUE"]}'
+            result = result + f"{row['main_ICD9']}"
+            if not pd.isna(row['ICD9_1']):
+                result = result + f' {row["ICD9_1"]}'
+            if not pd.isna(row['ICD9_2']):
+                result = result + f' {row["ICD9_2"]}'
+            if not pd.isna(row['ICD9_3']):
+                result = result + f' {row["ICD9_3"]}'
+            if not pd.isna(row['ICD9_4']):
+                result = result + f' {row["ICD9_4"]}'
+            if not pd.isna(row['ICD9_5']):
+                result = result + f' {row["ICD9_5"]}'
             result = result + ' [SEP] '
         results.append(result+'\n')
         
@@ -68,17 +68,17 @@ def create_finetune_text_from_data(output_folder, file_path='/content/drive/MyDr
         diagnoses = []
         hospitalisations = []
         for _,row in patient.iterrows():
-            diagnosis = [row['DIA_PRIN']]
-            if not pd.isna(row['DIA_UNO']):
-                diagnosis.append(row["DIA_UNO"])
-            if not pd.isna(row['DIA_DUE']):
-                diagnosis.append(row['DIA_DUE'])
-            if not pd.isna(row['DIA_TRE']):
-                diagnosis.append(row['DIA_TRE'])
-            if not pd.isna(row['DIA_QUATTRO']):
-                diagnosis.append(row['DIA_QUATTRO'])
-            if not pd.isna(row['DIA_CINQUE']):
-                diagnosis.append(row['DIA_CINQUE'])
+            diagnosis = [row['main_ICD9']]
+            if not pd.isna(row['ICD9_1']):
+                diagnosis.append(row["ICD9_1"])
+            if not pd.isna(row['ICD9_2']):
+                diagnosis.append(row['ICD9_2'])
+            if not pd.isna(row['ICD9_3']):
+                diagnosis.append(row['ICD9_3'])
+            if not pd.isna(row['ICD9_4']):
+                diagnosis.append(row['ICD9_4'])
+            if not pd.isna(row['ICD9_5']):
+                diagnosis.append(row['ICD9_5'])
 
             diagnoses.append(diagnosis)
             
@@ -168,17 +168,17 @@ def create_text_from_data(dataframe_or_file_path, output_folder, output_name = '
         result = '[CLS] '
         #result = str(keyone) + '\n'
         for _, row in patient.iterrows():
-            result = result + f"{row['DIA_PRIN']}"
-            if not pd.isna(row['DIA_UNO']):
-                result = result + f' {row["DIA_UNO"]}'
-            if not pd.isna(row['DIA_DUE']):
-                result = result + f' {row["DIA_DUE"]}'
-            if not pd.isna(row['DIA_TRE']):
-                result = result + f' {row["DIA_TRE"]}'
-            if not pd.isna(row['DIA_QUATTRO']):
-                result = result + f' {row["DIA_QUATTRO"]}'
-            if not pd.isna(row['DIA_CINQUE']):
-                result = result + f' {row["DIA_CINQUE"]}'
+            result = result + f"{row['main_ICD9']}"
+            if not pd.isna(row['ICD9_1']):
+                result = result + f' {row["ICD9_1"]}'
+            if not pd.isna(row['ICD9_2']):
+                result = result + f' {row["ICD9_2"]}'
+            if not pd.isna(row['ICD9_3']):
+                result = result + f' {row["ICD9_3"]}'
+            if not pd.isna(row['ICD9_4']):
+                result = result + f' {row["ICD9_4"]}'
+            if not pd.isna(row['ICD9_5']):
+                result = result + f' {row["ICD9_5"]}'
             result = result + ' [SEP] '
         results.append(result+'\n')
         
