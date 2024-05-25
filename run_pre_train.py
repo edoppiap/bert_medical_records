@@ -102,10 +102,10 @@ def eval(args, test_dataset, model, mask_token_id):
             
             if nsp_preds is None:
                 nsp_preds = nsp_logits.detach().cpu()
-                nsp_truths = next_sentence_label[:, 0].detach().cpu()
+                nsp_truths = next_sentence_label.detach().cpu()
             else:
                 nsp_preds = torch.cat((nsp_preds, nsp_logits.detach().cpu()), dim=0)
-                nsp_truths = torch.cat((nsp_truths, next_sentence_label[:, 0].detach().cpu()), dim=0)
+                nsp_truths = torch.cat((nsp_truths, next_sentence_label.detach().cpu()), dim=0)
         else:
             outputs = model(input_ids=input_ids,
                     token_type_ids = token_type_ids,

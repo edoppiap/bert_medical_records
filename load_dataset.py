@@ -137,19 +137,24 @@ class NewPreTrainingDataset(torch.utils.data.Dataset):
     doc = self.data_mmap[doc_start:doc_end]
     
     pair_end = doc.find(b'<end>')
-    pair, label = doc[:pair_end], int(doc[pair_end+len(b'<end>'):].decode('utf-8'))
-    
-    sentence_a, sentence_b = pair.split(b'[SEP]')
-    
-    inputs = self.tokenizer(sentence_a.decode('utf-8'), sentence_b.decode('utf-8'), return_tensors='pt',
-                             max_length=self.max_length, truncation=True, padding='max_length')
-    inputs['next_sentence_label'] = torch.LongTensor([label]).T
-    
+    if pair_end != -1: # this means that the dataset passed is not for nsp
+      pair, label = doc[:pair_end], int(doc[pair_end+len(b'<end>'):].decode('utf-8'))
+      
+      sentence_a, sentence_b = pair.split(b'[SEP]')
+      
+      inputs = self.tokenizer(sentence_a.decode('utf-8'), sentence_b.decode('utf-8'), return_tensors='pt',
+                              max_length=self.max_length, truncation=True, padding='max_length')
+      inputs['next_sentence_label'] = torch.LongTensor([label]).T
+      
+    else:
+      inputs = self.tokenizer(doc.decode('utf-8'), return_tensors='pt',
+                              max_length=self.max_length, truncation=True, padding='max_length')
+
     inputs['labels'] = inputs.input_ids.detach().clone()
     vocab_ids = list(self.tokenizer.vocab.values())
     rand = torch.rand(inputs.input_ids.shape)
     # print(f'{rand = }')
-
+    
     # mask 15% of token randomly
     # don't mask the CLS token (0)
     # don't mask the padding token (102)
