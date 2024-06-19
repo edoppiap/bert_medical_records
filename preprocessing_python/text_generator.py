@@ -3,13 +3,14 @@ This script, defines a function create_text_from_data which takes a dataframe or
 processes the data, and writes the processed data into a text file.
 '''
 import pandas as pd
+import csv
 import os
 from tqdm import tqdm
-from stqdm import stqdm #Streamlit-compatible progress bar
 import streamlit as st
 from datetime import datetime
 import argparse
 import random
+from sklearn.model_selection import train_test_split
 
 def create_infer_from_data(dataframe_or_file_path, output_folder, output_name = 'infer_dataset.txt', streamlit=False):
     """Function that generate the dataset for the Prediction out of the input csv file. It is needed only for development
@@ -166,6 +167,45 @@ def create_nsp_dataset(file_path, output_folder, output_name='nsp_dataset.txt'):
     with open(output_file_path, 'w', encoding='utf-8') as file:
         for sentence_a, sentence_b, label in tqdm(zip(sentences_a, sentences_b, labels), desc='Creating nsp dataset'):
             file.write(f'[CLS] {sentence_a} [SEP] {sentence_b} <end> {label}\n\n')
+            
+def create_class_text_from_data(file_path, output_folder, output_name = 'class_text_dataset.txt'):
+    with open(file_path, 'r', newline='') as f:
+        reader = csv.reader(f, delimiter=',', quotechar='"', escapechar='\\')
+        columns = next(reader)
+        data = []
+        for row in reader:
+            # workaround because sometimes the cripted string is not read correctly
+            if len(row) > 6:
+                row[0] = ''.join([row[0],row[1]])
+                row[1:] = row[2:]
+            data.append(row)
+
+    df = pd.DataFrame(data, columns=columns)
+    
+    types_event = df['Type_event'].unique().tolist()
+    strings_event = ['I-','D-','P-','M-', 'M-']
+    types_dict = {}
+    for type,string in zip(types_event, strings_event):
+        types_dict[type] = string
+    
+    docs = []
+    current_patient = None
+    doc=None
+    for (patient,_),rows in tqdm(df.groupby(['Assistito_CodiceFiscale_Criptato','sentence']), desc='Creating output lists'):
+        if current_patient is None or patient != current_patient:
+            if current_patient is not None:
+                docs.append(doc) #add the previous line
+            doc = '[CLS] '
+            current_patient = patient
+        doc += ' '.join(types_dict[rows['Type_event'].iloc[0]]+rows['Code_event']) + " [SEP] "
+    docs.append(doc) # add the last line
+
+    train,test = train_test_split(docs, test_size=.2, random_state=42, shuffle=True)
+    output_files = [os.path.join(output_folder, 'train.txt'),os.path.join(output_folder,'test.txt')]
+    print('Creating train and text output files')
+    for output_file,split in zip(output_files,[train,test]):
+        with open(output_file, 'w') as file:
+            file.write('\n'.join(split))
 
 def create_text_from_data(dataframe_or_file_path, output_folder, output_name = 'text_dataset.txt', streamlit=False):
     #output_path = os.path.join(dataframe_or_folder, text_generated_name)
@@ -226,6 +266,7 @@ if __name__ == '__main__':
     parser.add_argument('--create_finetuning_text_data', action='store_true')
     parser.add_argument('--create_infer_text_data', action='store_true')
     parser.add_argument('--create_nsp_text_file', action='store_true')
+    parser.add_argument('--create_class_text_data', action='store_true')
     
     args = parser.parse_args()
 
@@ -244,5 +285,10 @@ if __name__ == '__main__':
         
     if args.create_nsp_text_file:
         create_nsp_dataset(args.file_path,
+                           output_folder=args.output_folder,
+                           output_name=args.output_name)
+    
+    if args.create_class_text_data:
+        create_class_text_from_data(args.file_path,
                            output_folder=args.output_folder,
                            output_name=args.output_name)

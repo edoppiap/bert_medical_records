@@ -229,11 +229,23 @@ def main():
         
         model = get_bert_model(bert_class, args.vocab_size, args.max_seq_length,
                                pad_token_id=tokenizer.convert_tokens_to_ids(tokenizer.pad_token))
-    
-    dataset = NewPreTrainingDataset(tokenizer,
-                                 file_path=args.input_file,
-                                 mlm=args.mlm_percentage if bert_class == 'BertForMaskedLM' or bert_class == 'BertForPreTraining' else 0)
-    train_dataset, test_dataset = torch.utils.data.random_split(dataset, [.8,.2])
+        
+    if os.path.isfile(args.input_file):
+        dataset = NewPreTrainingDataset(tokenizer,
+                                    file_path=args.input_file,
+                                    mlm=args.mlm_percentage if bert_class == 'BertForMaskedLM' or bert_class == 'BertForPreTraining' else 0)
+        train_dataset, test_dataset = torch.utils.data.random_split(dataset, [.8,.2])
+    elif os.path.isdir(args.input_file):
+        train_file = os.path.join(args.input_file, 'train.txt')
+        test_file = os.path.join(args.input_file, 'test.txt')
+        assert os.path.isfile(train_file) and os.path.isfile(test_file), \
+            'Folder passed as input file but no train.txt or test.txt file found'
+        train_dataset = NewPreTrainingDataset(tokenizer,
+                                    file_path=train_file,
+                                    mlm=args.mlm_percentage if bert_class == 'BertForMaskedLM' or bert_class == 'BertForPreTraining' else 0)
+        test_dataset = NewPreTrainingDataset(tokenizer,
+                                    file_path=test_file,
+                                    mlm=args.mlm_percentage if bert_class == 'BertForMaskedLM' or bert_class == 'BertForPreTraining' else 0)
     
     if args.do_train:
         loss = train(args,train_dataset,model,model_output_path)
