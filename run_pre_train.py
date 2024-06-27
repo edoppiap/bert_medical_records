@@ -9,14 +9,16 @@ from tqdm import tqdm
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
+import logging
+import multiprocessing
 
 from custom_parser import parse_arguments
 from modeling import get_bert_model, get_model_from_path
-from tokenizer import train_tokenizer, get_tokenizer_from_path
+from tokenizer import train_tokenizer, get_tokenizer_from_path, get_tokenizer
 from optimizer import get_optimizer
 from load_dataset import PreTrainingDataset, NewPreTrainingDataset
 
-def train(args, train_dataset, model, model_path):
+def train(args, train_dataset, model, output_path):
     loader = DataLoader(train_dataset, batch_size=args.train_batch_size,
                         shuffle=True)
     
@@ -57,15 +59,15 @@ def train(args, train_dataset, model, model_path):
             loop.set_description(f'Epoch {epoch}')
             loop.set_postfix(loss=loss.item())
             
-    model.save_pretrained(model_path)
+    model.save_pretrained(output_path)
     return loss
 
 def compute_metrics(nsp_preds,nsp_truths, mlm_preds, mlm_truths):
     if nsp_preds is not None:
-        print(f'Nsp acc: {torch.sum(nsp_preds == nsp_truths).item() / len(nsp_truths)}')
+        logging.info(f'Nsp acc: {torch.sum(nsp_preds == nsp_truths).item() / len(nsp_truths)}')
     if mlm_preds is not None:
-        print(f'Mlm acc: {torch.sum(mlm_preds == mlm_truths).item() / len(mlm_truths)}')
-    # print(f'recall_at_k: {recall_score(mlm_truths.numpy(), top_k_indeces.numpy(), average="samples")}')
+        logging.info(f'Mlm acc: {torch.sum(mlm_preds == mlm_truths).item() / len(mlm_truths)}')
+    # logging.info(f'recall_at_k: {recall_score(mlm_truths.numpy(), top_k_indeces.numpy(), average="samples")}')
     
 
 def eval(args, test_dataset, model, mask_token_id):
@@ -120,11 +122,11 @@ def eval(args, test_dataset, model, mask_token_id):
             mask = (input_ids != labels).cpu()
 
             if mask.any():
-                # print(f'\n{torch.topk(mlm_logits.detach().cpu()[mask,:], 5, dim=1) = }')
+                # logging.info(f'\n{torch.topk(mlm_logits.detach().cpu()[mask,:], 5, dim=1) = }')
                 # mlm_pred = torch.argmax(mlm_logits.detach().cpu()[mask,:], dim=1)
-                # # print(f'{mlm_pred}')
+                # # logging.info(f'{mlm_pred}')
                 # # _, top_k_indices = torch.topk(mlm_pred[mask], 5, dim=1)
-                # print(f'{mlm_pred = }\n{labels.detach().cpu()[mask] = }')
+                # logging.info(f'{mlm_pred = }\n{labels.detach().cpu()[mask] = }')
                 if mlm_preds is None:
                     mlm_preds = mlm_logits.detach().cpu()[mask,:]  # Extract predictions
                     mlm_truths = labels.detach().cpu()[mask]  # Extract ground truths
@@ -142,10 +144,10 @@ def eval(args, test_dataset, model, mask_token_id):
     if mlm_preds is not None:
         mlm_preds = torch.argmax(mlm_preds, dim=1)
         # _,top_k_indeces = torch.topk(mlm_preds, 5, dim=1)
-        # print(f'{top_k_indeces = }\n{mlm_truths}')
+        # logging.info(f'{top_k_indeces = }\n{mlm_truths}')
     
-    # print(f'{nsp_preds.size() = } - {nsp_truths.size() = }')
-    # print(f'{mlm_preds.size() = } - {mlm_truths.size() = }')
+    # logging.info(f'{nsp_preds.size() = } - {nsp_truths.size() = }')
+    # logging.info(f'{mlm_preds.size() = } - {mlm_truths.size() = }')
     
     result = compute_metrics(nsp_preds,nsp_truths,mlm_preds,mlm_truths)
     return result
@@ -171,10 +173,8 @@ def main():
             if not os.path.exists(output_path):
                 os.makedirs(output_path)
 
-        print(f'Output files will be saved in folder: {output_path}')
-        
-        tokenizer_output_path = os.path.join(output_path, 'tokenizer')
-        model_output_path = os.path.join(output_path, 'pre_trained_model')
+        logging.info(f"There are {torch.cuda.device_count()} GPUs and {multiprocessing.cpu_count()} CPUs.")
+        logging.info(f'Output files will be saved in folder: {output_path}')
     
     if args.pre_train_tasks is not None:
         if args.pre_train_tasks == 'mlm':
@@ -187,49 +187,21 @@ def main():
         bert_class = args.bert_class
         
     if args.model_input:
-        model = get_model_from_path(bert_class, os.path.join(args.model_input, 'pre_trained_model'))
+        model_path = os.path.join(args.model_input, 'pre_trained_model')
         tokenizer_path = os.path.join(args.model_input, 'tokenizer')
-        if os.path.exists(tokenizer_path):
-            tokenizer = get_tokenizer_from_path()
-        else:
-            tokenizer = tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
-    elif args.use_pretrained_bert:
-        special_tokens = ['[CLS]','[SEP]','[MASK]']
+    else:
+        model_path = None
+        tokenizer_path = None
         
-        # custom_tokenizer = train_tokenizer(special_tokens=special_tokens,
-        #                             tokenizer_name=args.tokenizer_name,
-        #                             files=[args.input_file], 
-        #                             vocab_size=args.vocab_size, 
-        #                             max_length=args.max_seq_length,
-        #                             output_path=output_path)
-        # new_tokens = [token for token,_ in sorted(custom_tokenizer.vocab.items(), key=lambda x: x[1])]
-        
-        tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
-        
-        # num_add_tokens = tokenizer.add_tokens(new_tokens)
-        # print(f'Added {num_add_tokens} tokens')
-        
-        if bert_class == 'BertForMaskedLM':
-            model = BertForMaskedLM.from_pretrained('bert-base-uncased')
-        elif bert_class == 'BertForNextSentencePrediction':
-            model = BertForNextSentencePrediction.from_pretrained('bert-base-uncased')
-        elif bert_class == 'BertForPreTraining':
-            model = BertForPreTraining.from_pretrained('bert-base-uncased')
-        
-        # model.resize_token_embeddings(len(tokenizer))
-    elif args.do_train:
-        special_tokens = ['[CLS]','[SEP]','[MASK]']
-
-        tokenizer = train_tokenizer(special_tokens=special_tokens,
-                                    tokenizer_name=args.tokenizer_name,
-                                    files=[args.input_file], 
-                                    vocab_size=args.vocab_size, 
-                                    max_length=args.max_seq_length,
-                                    output_path=output_path)
-        
-        model = get_bert_model(bert_class, args.vocab_size, args.max_seq_length,
-                               pad_token_id=tokenizer.convert_tokens_to_ids(tokenizer.pad_token))
-        
+    tokenizer = get_tokenizer(path=tokenizer_path,
+                                args=args,
+                                output_path=output_path)
+     
+    model = get_bert_model(bert_class_name = bert_class,
+                           args=args,
+                           pad_token_id=tokenizer.convert_tokens_to_ids(tokenizer.pad_token),
+                           input_path=model_path)
+            
     if os.path.isfile(args.input_file):
         dataset = NewPreTrainingDataset(tokenizer,
                                     file_path=args.input_file,
@@ -248,8 +220,9 @@ def main():
                                     mlm=args.mlm_percentage if bert_class == 'BertForMaskedLM' or bert_class == 'BertForPreTraining' else 0)
     
     if args.do_train:
+        model_output_path = os.path.join(output_path, 'pre_trained_model')
         loss = train(args,train_dataset,model,model_output_path)
-        print(f'Average loss = {loss}')
+        logging.info(f'Average loss = {loss}')
     
     if args.do_eval:
         eval(args, test_dataset, model, mask_token_id=tokenizer.mask_token_id)

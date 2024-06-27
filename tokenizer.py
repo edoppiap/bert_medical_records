@@ -1,5 +1,6 @@
 import os
 import json
+import logging
 
 from tokenizers import Tokenizer
 from tokenizers import BertWordPieceTokenizer
@@ -12,8 +13,7 @@ def get_tokenizer_from_string(tokenizer_name: str, model_path, vocab_size):
   tokenizer = None
   if tokenizer_name == 'BertTokenizerFast':
     tokenizer = BertTokenizerFast.from_pretrained(model_path, vocab_size=vocab_size)
-  elif tokenizer_name == 'RetriBertTokenizer':
-    tokenizer = RetriBertTokenizer.from_pretrained(model_path, vocab_size=vocab_size)
+  # this class can be extended on further explorations
     
   if tokenizer == None:
     raise ValueError(f'Invalid tokenizer name {tokenizer_name}')
@@ -24,14 +24,37 @@ def get_tokenizer_from_path(path):
   # tokenizer_folder = os.path.join(path, 'tokenizer')
   return BertTokenizerFast.from_pretrained(path)
 
+def get_tokenizer(args, output_path, path=None):
+  special_tokens = ['[CLS]','[SEP]','[MASK]']
+  
+  if args.use_pretrained_bert:
+    tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
+  
+  elif path is not None:
+    if os.path.exists(path):
+      logging.info(f'Loading the custom tokenizer from {path =}')
+      tokenizer = BertTokenizerFast.from_pretrained(path)
+    else:
+      logging.info(f'Tokenizer path provided invalid, loadind an already pretrained version from Huggingface')
+      tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
+  else:
+    logging.info(f'No tokenizer provided, training one from skratch on the dataset')
+    tokenizer = train_tokenizer(special_tokens=special_tokens,
+                                    tokenizer_name=args.tokenizer_name,
+                                    files=[args.input_file], 
+                                    vocab_size=args.vocab_size, 
+                                    max_length=args.max_seq_length,
+                                    output_path=output_path)
+  return tokenizer
+
 def train_tokenizer(tokenizer_name, special_tokens, files, vocab_size, max_length, output_path):  
   tokenizer_path = os.path.join(output_path,'tokenizer')
   
   if os.path.exists(os.path.join(tokenizer_path, 'config.json')):
-    print('Tokenizer found')
+    logging.info('Tokenizer found')
     
   else:
-    print('Train the tokenizer')
+    logging.info('Train the tokenizer')
 
     # initialize the WordPiece tokenizer
     # CLASS THAT CAN BE CHOSED FROM THE UI
@@ -63,9 +86,8 @@ def train_tokenizer(tokenizer_name, special_tokens, files, vocab_size, max_lengt
         }
         json.dump(tokenizer_cfg, f)
     
-    print('Saving the tokenizer')
+    logging.info(f'Custom tokenzier trained and saved in {tokenizer_path}')
     
-  print('Loading the workable tokenizer')
   tokenizer = get_tokenizer_from_string(tokenizer_name, tokenizer_path, vocab_size)
   
   return tokenizer

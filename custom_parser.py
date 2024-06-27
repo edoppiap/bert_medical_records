@@ -34,6 +34,33 @@ def parse_arguments():
                         help='Whether to create prediction out of the input data (it need a finetuned model)')
     
     #-----------------------------------------------------------------#
+    # BERT CONFIG ARGUMENTS
+    #
+    #
+    parser.add_argument('--hidden_size', type=int, default=768,
+                        help='Dimensionality of the encoder layers and the pooler layer.')
+    parser.add_argument('--num_hidden_layers', type=int, default=12, 
+                        help='Number of hidden layers in the Transformer encoder.')
+    parser.add_argument('--num_attention_heads', type=int, default=12, 
+                        help='Number of attention heads for each attention layer in the Transformer encoder.')
+    parser.add_argument('--intermediate_size', type=int, default=3072,
+                        help='Dimensionality of the “intermediate” (often named feed-forward) layer in the Transformer encoder.')
+    parser.add_argument('--hidden_act', type=str, default='gelu',
+                        choices=["gelu", "relu", "silu","gelu_new"],
+                        help='The non-linear activation function (function or string) in the encoder and pooler. If string, "gelu", "relu", "silu" and "gelu_new" are supported.')
+    parser.add_argument('--hidden_dropout_prob', default=0.1, type=float,
+                        help='The dropout probability for all fully connected layers in the embeddings, encoder, and pooler.')
+    parser.add_argument('--attention_probs_dropout_prob', type=float, default=0.1,
+                        help='The dropout ratio for the attention probabilities.')
+    parser.add_argument('--initializer_range', type=float, default=.02,
+                        help='The standard deviation of the truncated_normal_initializer for initializing all weight matrices.')
+    parser.add_argument('--layer_norm_eps', type=float, default=1e-12,
+                        help='The epsilon used by the layer normalization layers.')
+    parser.add_argument('--type_vocab_size', type=int, default=2,
+                        help='The vocabulary size of the token_type_ids passed when calling BertModel or TFBertModel.')
+    parser.add_argument('--')
+    
+    #-----------------------------------------------------------------#
     # PRETRAINING ARGUMENTS
     #
     #
@@ -62,7 +89,7 @@ def parse_arguments():
     parser.add_argument('--eval_batch_size', type=int, default=9,
                         help='Total batch size for eval.')
     parser.add_argument('--learning_rate', type=float, default=5e-5,
-                        help='The initial learning ratee for Adam')
+                        help='The initial learning ratee for AdamW')
     parser.add_argument('--num_train_steps', type=int, default=100_000,
                         help='Number of training steps.')
     parser.add_argument('--num_warmup_steps', type=int, default=10_000,
