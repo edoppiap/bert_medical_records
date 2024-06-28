@@ -58,7 +58,6 @@ def parse_arguments():
                         help='The epsilon used by the layer normalization layers.')
     parser.add_argument('--type_vocab_size', type=int, default=2,
                         help='The vocabulary size of the token_type_ids passed when calling BertModel or TFBertModel.')
-    parser.add_argument('--')
     
     #-----------------------------------------------------------------#
     # PRETRAINING ARGUMENTS
