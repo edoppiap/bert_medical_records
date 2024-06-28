@@ -12,6 +12,7 @@ from torch.utils.data import DataLoader
 import logging
 import multiprocessing
 
+from set_logging import setup_logging
 from custom_parser import parse_arguments
 from modeling import get_bert_model, get_model_from_path
 from tokenizer import train_tokenizer, get_tokenizer_from_path, get_tokenizer
@@ -38,7 +39,9 @@ def train(args, train_dataset, model, output_path):
             token_type_ids = batch['token_type_ids'].to(device)
             attention_mask = batch['attention_mask'].to(device)
             labels = batch['labels'].to(device)
-            
+
+            print(f'{batch.keys() = }')
+
             if 'next_sentence_label' in batch.keys():
                 next_sentence_label = batch['next_sentence_label'].to(device)
                 outputs = model(input_ids=input_ids,
@@ -51,7 +54,8 @@ def train(args, train_dataset, model, output_path):
                         token_type_ids = token_type_ids,
                         attention_mask = attention_mask,
                         labels = labels)
-            
+
+            print(outputs)
             loss = outputs.loss
             loss.backward()
             optim.step()
@@ -153,7 +157,7 @@ def eval(args, test_dataset, model, mask_token_id):
     return result
         
 def main():
-    args = parse_arguments()
+    args = parse_arguments()    
     
     assert (args.do_train and args.do_eval) \
         or (args.model_input and args.do_eval) \
@@ -172,6 +176,8 @@ def main():
             output_path = os.path.join(current_directory, 'logs',current_time)
             if not os.path.exists(output_path):
                 os.makedirs(output_path)
+                
+        setup_logging(args.output_dir, console="debug")
 
         logging.info(f"There are {torch.cuda.device_count()} GPUs and {multiprocessing.cpu_count()} CPUs.")
         logging.info(f'Output files will be saved in folder: {output_path}')

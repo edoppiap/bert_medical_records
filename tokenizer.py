@@ -39,9 +39,17 @@ def get_tokenizer(args, output_path, path=None):
       tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
   else:
     logging.info(f'No tokenizer provided, training one from skratch on the dataset')
+    if os.path.isdir(args.input_file):
+      train_path = os.path.join(args.input_file, 'train.txt')
+      test_path = os.path.join(args.input_file, 'test.txt')
+      assert os.path.isfile(train_path) and os.path.isfile(test_path), 'You passed a folder that do not contain any train.txt and test.txt files'
+      files = [train_path, test_path]
+    else:
+      files = [args.input_file]
+    
     tokenizer = train_tokenizer(special_tokens=special_tokens,
                                     tokenizer_name=args.tokenizer_name,
-                                    files=[args.input_file], 
+                                    files=files, 
                                     vocab_size=args.vocab_size, 
                                     max_length=args.max_seq_length,
                                     output_path=output_path)

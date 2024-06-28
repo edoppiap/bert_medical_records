@@ -3,6 +3,7 @@ Setting up BERT models with specific configurations and classes, tailored for di
 '''
 from transformers import BertConfig, BertForMaskedLM, BertForPreTraining, BertForNextSentencePrediction
 import os
+import logging
 
 bert_classes = {
     'BertForMaskedLM' : BertForMaskedLM,
@@ -17,12 +18,15 @@ def get_model(bert_class_name, config, pretrained=False, input_path=None):
     
     if pretrained:
         model = bert_classes[bert_class_name].from_pretrained('bert-base-uncased', config=config)
+        logging.info('Loaded an already pretrained version of BERT from server')
     elif input_path is not None:
         assert os.path.exists(input_path), 'Invalid model input path provided'
         
         model = bert_classes[bert_class_name].from_pretrained(input_path)
+        logging.info('Loaded an already pretrained version of BERT from folder path')
     else:
         model = bert_classes[bert_class_name](config)
+        logging.info(f'Loaded the raw architecture of {type(model)} (has to be pretrained!)')
     
     return model
 
@@ -50,7 +54,7 @@ def get_bert_model(bert_class_name, args, pad_token_id, input_path=None):
         )
     elif input_path is None:    
         model_config = BertConfig(vocab_size=args.vocab_size,
-                                max_position_embeddings=args.max_length,
+                                max_position_embeddings=args.max_seq_length,
                                 hidden_size=args.hidden_size,\
                                 num_hidden_layers=args.num_hidden_layers,
                                 num_attention_heads=args.num_attention_heads,
