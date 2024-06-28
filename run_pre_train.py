@@ -40,8 +40,6 @@ def train(args, train_dataset, model, output_path):
             attention_mask = batch['attention_mask'].to(device)
             labels = batch['labels'].to(device)
 
-            print(f'{batch.keys() = }')
-
             if 'next_sentence_label' in batch.keys():
                 next_sentence_label = batch['next_sentence_label'].to(device)
                 outputs = model(input_ids=input_ids,
@@ -55,7 +53,6 @@ def train(args, train_dataset, model, output_path):
                         attention_mask = attention_mask,
                         labels = labels)
 
-            print(outputs)
             loss = outputs.loss
             loss.backward()
             optim.step()

@@ -201,21 +201,22 @@ def create_class_nsp_dataset(file_path, output_folder, output_name = 'class_nsp_
     pairs = []
     for (patient,_),rows in tqdm(df.groupby(['Assistito_CodiceFiscale_Criptato','sentence']), desc='Creating pairs of sentences'):
         if current_patient is None or patient != current_patient:
+            if current_patient is not None:
+                num_sentences = len(sentences)
+                start = 0
+                while start < num_sentences - 2:
+                    pair = '[CLS] ' + sentences[start] + ' [SEP] ' # sentence a 
+                    if random.random() > .5:
+                        pair += sentences[start+1] + ' <end> ' # sentence b
+                        pair += '1' # they are consecutive
+                    else:
+                        pair += bag[random.randint(0, bag_size-1)] + ' <end> ' # sentence b
+                        pair += '0' # they are NOT consecutive
+                    start+=1
+                    pairs.append(pair)
             current_patient = patient
-            pair = '[CLS] '
-        sentences = types_dict[rows['Type_event'].iloc[0]]+rows['Code_event']
-        num_sentences = len(sentences)
-        start = 0
-        while start < num_sentences - 2:
-            pair += sentences[start] + ' [SEP] ' # sentence a 
-            if random.random() > .5:
-                pair += sentences[start+1] + ' <end> ' # sentence b
-                pair += '1' # they are consecutive
-            else:
-                pair += bag[random.randint(0, bag_size-1)] + ' <end> ' # sentence b
-                pair += '0' # they are NOT consecutive
-            start+=1
-            pairs.append(pair)
+            sentences = []
+        sentences.append(' '.join(types_dict[rows['Type_event'].iloc[0]]+rows['Code_event']))
             
     train,test = train_test_split(pairs, test_size=.2, random_state=42, shuffle=True)
     if not os.path.exists(output_folder):
@@ -326,6 +327,7 @@ if __name__ == '__main__':
     parser.add_argument('--create_infer_text_data', action='store_true')
     parser.add_argument('--create_nsp_text_file', action='store_true')
     parser.add_argument('--create_class_text_data', action='store_true')
+    parser.add_argument('--create_nsp_class_text_data', action='store_true')
     
     args = parser.parse_args()
 
@@ -351,3 +353,8 @@ if __name__ == '__main__':
         create_class_text_from_data(args.file_path,
                            output_folder=args.output_folder,
                            output_name=args.output_name)
+
+    if args.create_nsp_class_text_data:
+        create_class_nsp_dataset(args.file_path,
+                                 output_folder=args.output_folder,
+                                 output_name=args.output_name)
