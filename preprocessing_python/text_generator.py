@@ -168,6 +168,65 @@ def create_nsp_dataset(file_path, output_folder, output_name='nsp_dataset.txt'):
         for sentence_a, sentence_b, label in tqdm(zip(sentences_a, sentences_b, labels), desc='Creating nsp dataset'):
             file.write(f'[CLS] {sentence_a} [SEP] {sentence_b} <end> {label}\n\n')
             
+def create_class_nsp_dataset(file_path, output_folder, output_name = 'class_nsp_dataset.txt'):
+    with open(file_path, 'r', newline='') as f:
+        reader = csv.reader(f, delimiter=',', quotechar='"', escapechar='\\')
+        columns = next(reader)
+        data = []
+        for row in reader:
+            # workaround because sometimes the cripted string is not read correctly
+            if len(row) > 6:
+                row[0] = ''.join([row[0],row[1]])
+                row[1:] = row[2:]
+            data.append(row)
+            
+    df = pd.DataFrame(data, columns=columns)
+    
+    types_event = df['Type_event'].unique().tolist()
+    strings_event = ['I-','D-','P-','M-', 'M-']
+    types_dict = {}
+    for type,string in zip(types_event, strings_event):
+        types_dict[type] = string
+        
+    bag = []
+    current_patient = None
+    for (patient,_),rows in tqdm(df.groupby(['Assistito_CodiceFiscale_Criptato','sentence']), desc='Creating bags of sentences'):
+        if current_patient is None or patient != current_patient:
+            current_patient = patient
+        sentence = ' '.join(types_dict[rows['Type_event'].iloc[0]]+rows['Code_event'])
+        bag.append(sentence)
+    bag_size = len(bag)
+    
+    current_patient = None
+    pairs = []
+    for (patient,_),rows in tqdm(df.groupby(['Assistito_CodiceFiscale_Criptato','sentence']), desc='Creating pairs of sentences'):
+        if current_patient is None or patient != current_patient:
+            current_patient = patient
+            pair = '[CLS] '
+        sentences = types_dict[rows['Type_event'].iloc[0]]+rows['Code_event']
+        num_sentences = len(sentences)
+        start = 0
+        while start < num_sentences - 2:
+            pair += sentences[start] + ' [SEP] ' # sentence a 
+            if random.random() > .5:
+                pair += sentences[start+1] + ' <end> ' # sentence b
+                pair += '1' # they are consecutive
+            else:
+                pair += bag[random.randint(0, bag_size-1)] + ' <end> ' # sentence b
+                pair += '0' # they are NOT consecutive
+            start+=1
+            pairs.append(pair)
+            
+    train,test = train_test_split(pairs, test_size=.2, random_state=42, shuffle=True)
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+        
+    output_files = [os.path.join(output_folder, 'train.txt'),os.path.join(output_folder,'test.txt')]
+    for output_file,split in zip(output_files,[train,test]):
+        with open(output_file, 'w') as file:
+            file.write('\n'.join(split))
+        
+            
 def create_class_text_from_data(file_path, output_folder, output_name = 'class_text_dataset.txt'):
     with open(file_path, 'r', newline='') as f:
         reader = csv.reader(f, delimiter=',', quotechar='"', escapechar='\\')
