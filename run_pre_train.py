@@ -1,6 +1,7 @@
 from transformers import BertForMaskedLM, BertConfig, BertForPreTraining, BertForNextSentencePrediction
 from transformers import BertTokenizerFast
 from transformers.data.metrics import acc_and_f1
+from transformers import get_scheduler
 # from sklearn.metrics import recall_score
 
 import os
@@ -12,7 +13,7 @@ from torch.utils.data import DataLoader
 import logging
 import multiprocessing
 
-from set_logging import setup_logging
+from utils import setup_logging
 from custom_parser import parse_arguments
 from modeling import get_bert_model, get_model_from_path
 from tokenizer import train_tokenizer, get_tokenizer_from_path, get_tokenizer
@@ -23,17 +24,21 @@ def train(args, train_dataset, model, output_path):
     loader = DataLoader(train_dataset, batch_size=args.train_batch_size,
                         shuffle=True)
     
-    optim = get_optimizer(parameters=model.parameters(), lr=args.learning_rate)
+    optim = get_optimizer(parameters=model.parameters(), lr=args.learning_rate, eps=args.adam_epsilon)
+    scheduler = get_scheduler(name=args.scheduler_name, 
+                              optimizer=optim, 
+                              num_warmup_steps=args.num_warmup_steps, 
+                              num_training_steps=args.num_training_steps)
     
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     
     model.to(device)
     model.train()
+    global_step = 0
     
     for epoch in range(args.num_epochs):
         loop = tqdm(loader, leave=True)
-        for batch in loop:
-            optim.zero_grad()
+        for step,batch in enumerate(loop):
 
             input_ids = batch['input_ids'].to(device)
             token_type_ids = batch['token_type_ids'].to(device)
@@ -55,12 +60,32 @@ def train(args, train_dataset, model, output_path):
 
             loss = outputs.loss
             loss.backward()
-            optim.step()
+            
+            if (step+1) % args.gradient_accumulation_steps == 0:
+                optim.step()
+                scheduler.step()
+                optim.zero_grad()
+                global_step += 1
+                
+                if global_step % args.save_checkpoints_steps == 0:
+                    checkpoint_prefix = 'checkpoint'
+                    checkpoint_path = os.path.join(output_path, f'{checkpoint_prefix}-{global_step}')
+                    if not os.path.exists(checkpoint_path):
+                        os.makedirs(checkpoint_path)
+                    model.save_pretrained(checkpoint_path)
+                    
+                    torch.save(args, os.path.join(checkpoint_path, 'training_args.bin'))
+                    logging.info(f"Saving model checkpoint to {checkpoint_path}")
             
             loop.set_description(f'Epoch {epoch}')
             loop.set_postfix(loss=loss.item())
             
+            if args.num_train_step > 0 and global_step > args.num_train_step:
+                loop.close()
+                break
+            
     model.save_pretrained(output_path)
+    torch.save(args, os.path.join(output_path, 'training_args.bin'))
     return loss
 
 def compute_metrics(nsp_preds,nsp_truths, mlm_preds, mlm_truths):
@@ -177,6 +202,7 @@ def main():
         setup_logging(args.output_dir, console="debug")
 
         logging.info(f"There are {torch.cuda.device_count()} GPUs and {multiprocessing.cpu_count()} CPUs.")
+        logging.info(f'Arguments: {args}')
         logging.info(f'Output files will be saved in folder: {output_path}')
     
     if args.pre_train_tasks is not None:

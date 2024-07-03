@@ -1,6 +1,9 @@
 import logging 
 import traceback
 import sys
+import os
+
+import torch
 
 def setup_logging(output_folder: str, console: str = 'debug',
                   info_filename:str = 'info.log', debug_filename:str = 'debug.log'):
@@ -34,3 +37,9 @@ def setup_logging(output_folder: str, console: str = 'debug',
         logger.info("\n" + "".join(traceback.format_exception(type, value, tb)))
         logging.info("Experiment finished (with some errors)")
     sys.excepthook = my_handler
+    
+def save_checkpoint(state:dict, is_best:bool, output_folder:str, ckpt_filename: str = 'last_checkpoint.pth'):
+    checkpoint_path = os.path.join(output_folder,ckpt_filename)
+    torch.save(state, checkpoint_path)
+    
+    
