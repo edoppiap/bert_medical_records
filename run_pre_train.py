@@ -28,7 +28,7 @@ def train(args, train_dataset, model, output_path):
     scheduler = get_scheduler(name=args.scheduler_name, 
                               optimizer=optim, 
                               num_warmup_steps=args.num_warmup_steps, 
-                              num_training_steps=args.num_training_steps)
+                              num_training_steps=args.num_train_steps)
     
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     
@@ -69,7 +69,7 @@ def train(args, train_dataset, model, output_path):
                 
                 if global_step % args.save_checkpoints_steps == 0:
                     checkpoint_prefix = 'checkpoint'
-                    checkpoint_path = os.path.join(output_path, f'{checkpoint_prefix}-{global_step}')
+                    checkpoint_path = os.path.join(args.output_dir, f'{checkpoint_prefix}-{global_step}')
                     if not os.path.exists(checkpoint_path):
                         os.makedirs(checkpoint_path)
                     model.save_pretrained(checkpoint_path)
@@ -80,7 +80,7 @@ def train(args, train_dataset, model, output_path):
             loop.set_description(f'Epoch {epoch}')
             loop.set_postfix(loss=loss.item())
             
-            if args.num_train_step > 0 and global_step > args.num_train_step:
+            if args.num_train_steps > 0 and global_step > args.num_train_steps:
                 loop.close()
                 break
             
