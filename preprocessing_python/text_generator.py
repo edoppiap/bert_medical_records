@@ -228,7 +228,7 @@ def create_class_nsp_dataset(file_path, output_folder, output_name = 'class_nsp_
             file.write('\n'.join(split))
         
             
-def create_class_text_from_data(file_path, output_folder, output_name = 'class_text_dataset.txt'):
+def create_class_text_from_data(file_path, output_folder, output_name = 'class_text_dataset.txt', split=False):
     with open(file_path, 'r', newline='') as f:
         reader = csv.reader(f, delimiter=',', quotechar='"', escapechar='\\')
         columns = next(reader)
@@ -260,12 +260,16 @@ def create_class_text_from_data(file_path, output_folder, output_name = 'class_t
         doc += ' '.join(types_dict[rows['Type_event'].iloc[0]]+rows['Code_event']) + " [SEP] "
     docs.append(doc) # add the last line
 
-    train,test = train_test_split(docs, test_size=.2, random_state=42, shuffle=True)
-    output_files = [os.path.join(output_folder, 'train.txt'),os.path.join(output_folder,'test.txt')]
-    print('Creating train and text output files')
-    for output_file,split in zip(output_files,[train,test]):
-        with open(output_file, 'w') as file:
-            file.write('\n'.join(split))
+    if split is True:
+        train,test = train_test_split(docs, test_size=.2, random_state=42, shuffle=True)
+        output_files = [os.path.join(output_folder, 'train.txt'),os.path.join(output_folder,'test.txt')]
+        print('Creating train and text output files')
+        for output_file,split in zip(output_files,[train,test]):
+            with open(output_file, 'w') as file:
+                file.write('\n'.join(split))
+    else:
+        with open(os.path.join(output_folder, output_name), 'w') as file:
+            file.write('\n'.join(docs))
 
 def create_text_from_data(dataframe_or_file_path, output_folder, output_name = 'text_dataset.txt', streamlit=False):
     #output_path = os.path.join(dataframe_or_folder, text_generated_name)
@@ -328,6 +332,7 @@ if __name__ == '__main__':
     parser.add_argument('--create_nsp_text_file', action='store_true')
     parser.add_argument('--create_class_text_data', action='store_true')
     parser.add_argument('--create_nsp_class_text_data', action='store_true')
+    parser.add_argument('--split', action='store_true')
     
     args = parser.parse_args()
 
@@ -352,7 +357,8 @@ if __name__ == '__main__':
     if args.create_class_text_data:
         create_class_text_from_data(args.file_path,
                            output_folder=args.output_folder,
-                           output_name=args.output_name)
+                           output_name=args.output_name,
+                            split=args.split)
 
     if args.create_nsp_class_text_data:
         create_class_nsp_dataset(args.file_path,

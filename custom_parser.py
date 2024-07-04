@@ -96,9 +96,9 @@ def parse_arguments():
                         help='Type of scheduler to use during training')
     parser.add_argument('--gradient_accumulation_steps', type=int, default=1,
                         help="Number of updates steps to accumulate before performing a backward/update pass.")
-    parser.add_argument('--num_train_steps', type=int, default=100_000,
+    parser.add_argument('--num_train_steps', type=int, default=0,
                         help='Number of training steps.')
-    parser.add_argument('--num_warmup_steps', type=int, default=10_000,
+    parser.add_argument('--num_warmup_steps', type=int, default=500,
                         help='Number of warmup steps.')
     parser.add_argument('--eval_interval_steps', type=int, default=10_000,
                         help='Number of steps between evaluations.')
