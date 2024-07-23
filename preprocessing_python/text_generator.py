@@ -7,10 +7,42 @@ import csv
 import os
 from tqdm import tqdm
 import streamlit as st
-from datetime import datetime
+from datetime import datetime, timedelta
 import argparse
 import random
-from sklearn.model_selection import train_test_split
+
+def read_csv_dataset(file_path):
+    with open(file_path, 'r', newline='') as f:
+        reader = csv.reader(f, delimiter=',', quotechar='"', escapechar='\\')
+        columns = next(reader)
+        data = []
+        for row in reader:
+            # workaround because sometimes the cripted string is not read correctly
+            if len(row) > 6:
+                row[0] = ''.join([row[0],row[1]])
+                row[1:] = row[2:]
+            if row[1].startswith(','):
+                row[1] = row[1].lstrip(',').rstrip('"')
+                row[0] = row[0]+','
+            data.append(row)
+
+    df = pd.DataFrame(data, columns=columns)
+    
+    types_event = df['Type_event'].unique().tolist()
+    strings_event = ['I-','D-','P-','M-', 'M-']
+    types_dict = {}
+    for type,string in zip(types_event, strings_event):
+        types_dict[type] = string
+        
+    return df, types_dict
+
+def is_less_than_3_month(date_1, date_2):
+    date_1 = datetime.strptime(date_1, "%d/%m/%Y")
+    date_2 = datetime.strptime(date_2, "%d/%m/%Y")
+    
+    # return if the two dates are less than 30 days apart
+    return abs(date_1 - date_2) < timedelta(days=90) 
+    
 
 def create_infer_from_data(dataframe_or_file_path, output_folder, output_name = 'infer_dataset.txt', streamlit=False):
     """Function that generate the dataset for the Prediction out of the input csv file. It is needed only for development
@@ -168,25 +200,8 @@ def create_nsp_dataset(file_path, output_folder, output_name='nsp_dataset.txt'):
         for sentence_a, sentence_b, label in tqdm(zip(sentences_a, sentences_b, labels), desc='Creating nsp dataset'):
             file.write(f'[CLS] {sentence_a} [SEP] {sentence_b} <end> {label}\n\n')
             
-def create_class_nsp_dataset(file_path, output_folder, output_name = 'class_nsp_dataset.txt'):
-    with open(file_path, 'r', newline='') as f:
-        reader = csv.reader(f, delimiter=',', quotechar='"', escapechar='\\')
-        columns = next(reader)
-        data = []
-        for row in reader:
-            # workaround because sometimes the cripted string is not read correctly
-            if len(row) > 6:
-                row[0] = ''.join([row[0],row[1]])
-                row[1:] = row[2:]
-            data.append(row)
-            
-    df = pd.DataFrame(data, columns=columns)
-    
-    types_event = df['Type_event'].unique().tolist()
-    strings_event = ['I-','D-','P-','M-', 'M-']
-    types_dict = {}
-    for type,string in zip(types_event, strings_event):
-        types_dict[type] = string
+def create_class_nsp_dataset(file_path, output_folder, output_name = 'class_nsp_dataset.txt', split=False):        
+    df, types_dict = read_csv_dataset(file_path)
         
     bag = []
     current_patient = None
@@ -202,6 +217,7 @@ def create_class_nsp_dataset(file_path, output_folder, output_name = 'class_nsp_
     for (patient,_),rows in tqdm(df.groupby(['Assistito_CodiceFiscale_Criptato','sentence']), desc='Creating pairs of sentences'):
         if current_patient is None or patient != current_patient:
             if current_patient is not None:
+                sentences = sentences[::-1] # invert the order of the sentences to make it cronological
                 num_sentences = len(sentences)
                 start = 0
                 while start < num_sentences - 2:
@@ -216,37 +232,83 @@ def create_class_nsp_dataset(file_path, output_folder, output_name = 'class_nsp_
                     pairs.append(pair)
             current_patient = patient
             sentences = []
-        sentences.append(' '.join(types_dict[rows['Type_event'].iloc[0]]+rows['Code_event']))
-            
-    train,test = train_test_split(pairs, test_size=.2, random_state=42, shuffle=True)
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
-        
-    output_files = [os.path.join(output_folder, 'train.txt'),os.path.join(output_folder,'test.txt')]
-    for output_file,split in zip(output_files,[train,test]):
-        with open(output_file, 'w') as file:
-            file.write('\n'.join(split))
-        
-            
-def create_class_text_from_data(file_path, output_folder, output_name = 'class_text_dataset.txt', split=False):
-    with open(file_path, 'r', newline='') as f:
-        reader = csv.reader(f, delimiter=',', quotechar='"', escapechar='\\')
-        columns = next(reader)
-        data = []
-        for row in reader:
-            # workaround because sometimes the cripted string is not read correctly
-            if len(row) > 6:
-                row[0] = ''.join([row[0],row[1]])
-                row[1:] = row[2:]
-            data.append(row)
-
-    df = pd.DataFrame(data, columns=columns)
+        sentences.append(' '.join((types_dict[rows['Type_event'].iloc[0]]+rows['Code_event'])[::-1]))
     
-    types_event = df['Type_event'].unique().tolist()
-    strings_event = ['I-','D-','P-','M-', 'M-']
-    types_dict = {}
-    for type,string in zip(types_event, strings_event):
-        types_dict[type] = string
+    if split:
+        train,test = train_test_split(pairs, test_size=.2, random_state=42, shuffle=True)
+        if not os.path.exists(output_folder):
+            os.makedirs(output_folder)
+            
+        output_files = [os.path.join(output_folder, 'train.txt'),os.path.join(output_folder,'test.txt')]
+        for output_file,split in zip(output_files,[train,test]):
+            with open(output_file, 'w') as file:
+                file.write('\n'.join(split))
+    else:
+        with open(os.path.join(output_folder, output_name), 'w') as file:
+            file.write('\n'.join(pairs))
+            
+def create_finetuning_dataset(file_path, output_folder, output_name = 'finetuning_dataset.txt', split=False):
+    df, types_dict = read_csv_dataset(file_path)
+    
+    docs = []
+    current_patient = None
+    dates = None
+    doc = None
+    for (patient,_),rows in tqdm(df.groupby(['Assistito_CodiceFiscale_Criptato','sentence']),desc='Creating list of docs'):
+        # print(f"{patient = }, {date = }")
+        sentence_list = (types_dict[rows['Type_event'].iloc[0]]+rows['Code_event'])
+        date = rows['Data'].iloc[0]
+        if current_patient is None:
+            sentences = [' '.join(sentence_list)+ ' [SEP]']
+            dates = [date]
+            current_patient = patient
+        elif patient != current_patient:
+            # conclude the previous cicle
+            try:
+                # this will reverse the list of sentences and eliminate the last item
+                doc = '[CLS] ' + ' '.join(sentences[::-1][:-1]) + ' <end> '
+                # the date are not been reversed, so they can be interpreted in the same order of the csv file
+                if len(dates) > 2 and is_less_than_3_month(dates[0],dates[1]):
+                    doc += '1'
+                else:
+                    doc += '0'
+                    
+                # print(f'{current_patient = }\n{dates = }\n{doc =}\n\n')
+                docs.append(doc)
+            except:
+                print(f"Exception:\n{current_patient = }\n{doc = }\n{dates = }")
+            
+            # prepare a new cicle
+            current_patient = patient
+            sentences = [' '.join(sentence_list)+ ' [SEP]']
+            dates = [date]
+        else: # this is a new line of the same patient
+            sentences.append(' '.join(sentence_list)+ ' [SEP]')
+            dates.append(date)
+    # process the last patient
+    doc = '[CLS] ' + ' '.join(sentences[::-1][:-1]) + '<end> '
+    if len(dates) > 2 and is_less_than_3_month(dates[0],dates[1]):
+        doc += '1'
+    else:
+        doc += '0'
+    docs.append(doc)
+            
+    if split:
+        train,test = train_test_split(docs, test_size=.2, random_state=42, shuffle=True)
+        if not os.path.exists(output_folder):
+            os.makedirs(output_folder)
+        
+        output_files = [os.path.join(output_folder, 'train.txt'),os.path.join(output_folder,'test.txt')]
+        for output_file,split in zip(output_files,[train,test]):
+            with open(output_file, 'w') as file:
+                file.write('\n'.join(split))
+    else:
+        with open(os.path.join(output_folder, output_name), 'w') as file:
+            file.write('\n'.join(docs))       
+        
+            
+def create_mlm_only_dataset(file_path, output_folder, output_name = 'class_text_dataset.txt', split=False):        
+    df, types_dict = read_csv_dataset(file_path)
     
     docs = []
     current_patient = None
@@ -317,6 +379,7 @@ def create_text_from_data(dataframe_or_file_path, output_folder, output_name = '
     return text_dataset_path
         
 if __name__ == '__main__':
+    from sklearn.model_selection import train_test_split
     
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     
@@ -330,7 +393,7 @@ if __name__ == '__main__':
     parser.add_argument('--create_finetuning_text_data', action='store_true')
     parser.add_argument('--create_infer_text_data', action='store_true')
     parser.add_argument('--create_nsp_text_file', action='store_true')
-    parser.add_argument('--create_class_text_data', action='store_true')
+    parser.add_argument('--create_mlm_only_dataset', action='store_true')
     parser.add_argument('--create_nsp_class_text_data', action='store_true')
     parser.add_argument('--split', action='store_true')
     
@@ -340,6 +403,7 @@ if __name__ == '__main__':
         create_text_from_data(args.file_path, 
                               output_folder=args.output_folder, 
                               output_name=args.output_name)
+        
     if args.create_finetuning_text_data:
         create_finetune_text_from_data(output_folder=args.output_folder,
                                        file_path=args.file_path,
@@ -354,8 +418,8 @@ if __name__ == '__main__':
                            output_folder=args.output_folder,
                            output_name=args.output_name)
     
-    if args.create_class_text_data:
-        create_class_text_from_data(args.file_path,
+    if args.create_mlm_only_dataset:
+        create_mlm_only_dataset(args.file_path,
                            output_folder=args.output_folder,
                            output_name=args.output_name,
                             split=args.split)
@@ -363,4 +427,5 @@ if __name__ == '__main__':
     if args.create_nsp_class_text_data:
         create_class_nsp_dataset(args.file_path,
                                  output_folder=args.output_folder,
-                                 output_name=args.output_name)
+                                 output_name=args.output_name,
+                                 split=args.split)
