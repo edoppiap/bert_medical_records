@@ -4,6 +4,7 @@ from torch.utils.data import DataLoader
 from transformers.data.metrics import acc_and_f1
 
 import logging
+import sys
 import multiprocessing
 import os
 from datetime import datetime
@@ -18,6 +19,7 @@ from optimizer import get_optimizer
 from transformers import get_scheduler
 
 def train(args, train_dataset, model, model_path):
+    start_time = datetime.now()
     loader = DataLoader(train_dataset, batch_size=args.train_batch_size,
                         shuffle=True)
     
@@ -35,6 +37,7 @@ def train(args, train_dataset, model, model_path):
     
     for epoch in range(args.num_epochs):
         loop = tqdm(loader, leave=True)
+        epoch_start_time = datetime.now()
         for step,batch in enumerate(loop):
             
             input_ids = batch['input_ids'].to(device)
@@ -72,9 +75,12 @@ def train(args, train_dataset, model, model_path):
                 loop.close()
                 break
             
+        logging.debug(f"Epoch {epoch:02d} in {str(datetime.now() - epoch_start_time)[:-7]}, "
+                  f"loss = {loss:.4f}")
         if args.num_train_steps > 0 and global_step > args.num_train_steps:
             break
-            
+    
+    logging.info(f"Trained for {epoch + 1:02d} epochs, in total in {str(datetime.now() - start_time)[:-7]}")
     model.save_pretrained(model_path)
     torch.save(args, os.path.join(args.output_dir, 'training_args.bin'))
     return loss
@@ -186,8 +192,10 @@ def main():
         if not os.path.exists(output_path):
             os.makedirs(output_path)
         
-    logging.info(f"There are {torch.cuda.device_count()} GPUs and {multiprocessing.cpu_count()} CPUs.")
+    logging.info(f'Arguments: {args}')
+    logging.info(" ".join(sys.argv))    
     logging.info(f'Output files will be saved in folder: {output_path}')
+    logging.info(f"There are {torch.cuda.device_count()} GPUs and {multiprocessing.cpu_count()} CPUs.")
     
     model_path = os.path.join(output_path, 'finetuned_model')
     
@@ -209,16 +217,41 @@ def main():
             model = BertForSequenceClassification.from_pretrained(args.model_input)
     
     if not args.predict:
-        dataset = NewFinetuningDataset(tokenizer, 
+        if os.path.isfile(args.input_file):
+            dataset = NewFinetuningDataset(tokenizer, 
                                 file_path=args.input_file, 
                                 max_length=args.max_seq_length)
+            train_dataset, test_dataset = torch.utils.data.random_split(dataset, [.8,.2])
+            if not args.do_train:
+                del train_dataset
+            if not args.do_eval:
+                del test_dataset
+        elif os.path.isdir(args.input_file):
+            train_file = os.path.join(args.input_file, 'train.txt')
+            test_file = os.path.join(args.input_file, 'test.txt')
+            assert os.path.isfile(train_file) and os.path.isfile(test_file), \
+                'Folder passed as input file but no train.txt or test.txt file found'
+            if args.do_train:
+                train_dataset = NewFinetuningDataset(tokenizer,
+                                        file_path=train_file,
+                                        max_length=args.max_seq_length)
+            if args.do_eval:
+                test_dataset = NewFinetuningDataset(tokenizer,
+                                        file_path=test_file,
+                                        max_length=args.max_seq_length)
     else:
         dataset = InferDataset(tokenizer, 
                                 file_path=args.input_file, 
                                 max_length=args.max_seq_length)
         
-    if not args.predict:
-        train_dataset, test_dataset = torch.utils.data.random_split(dataset, [.8,.2])
+    if args.do_train and args.do_eval:  
+        logging.info(f'There are {len(train_dataset)} documents in the train datatset and {len(test_dataset)} in the evaluation one.')
+    elif args.do_train:
+        logging.info(f'Only the train will be performed. There are {len(train_dataset)} documents in the dataset')
+    elif args.do_eval:
+        logging.info(f'Only the evaluation will be performed. There are {len(test_dataset)} documents in the dataset')
+    elif args.predict:
+        logging.info(f'It will predict labels for the dataset. There are {len(dataset)} documents in the dataset.')
     
     if args.do_train:
         loss = train(args, train_dataset, model, model_path)

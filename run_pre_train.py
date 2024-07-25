@@ -5,6 +5,7 @@ from transformers import get_scheduler
 # from sklearn.metrics import recall_score
 
 import os
+import sys
 from datetime import datetime
 from tqdm import tqdm
 import numpy as np
@@ -21,6 +22,7 @@ from optimizer import get_optimizer
 from load_dataset import PreTrainingDataset, NewPreTrainingDataset
 
 def train(args, train_dataset, model, output_path):
+    start_time = datetime.now()
     loader = DataLoader(train_dataset, batch_size=args.train_batch_size,
                         shuffle=True)
     
@@ -37,6 +39,7 @@ def train(args, train_dataset, model, output_path):
     global_step = 0
     
     for epoch in range(args.num_epochs):
+        epoch_start_time = datetime.now()
         loop = tqdm(loader, leave=True)
         for step,batch in enumerate(loop):
 
@@ -84,6 +87,8 @@ def train(args, train_dataset, model, output_path):
                 loop.close()
                 break
         
+        logging.debug(f"Epoch {epoch:02d} in {str(datetime.now() - epoch_start_time)[:-7]}, "
+                  f"loss = {loss:.4f}")
         if args.num_train_steps > 0 and global_step > args.num_train_steps:
             break
             
@@ -204,9 +209,10 @@ def main():
                 
         setup_logging(args.output_dir, console="debug")
 
-        logging.info(f"There are {torch.cuda.device_count()} GPUs and {multiprocessing.cpu_count()} CPUs.")
         logging.info(f'Arguments: {args}')
+        logging.info(" ".join(sys.argv))    
         logging.info(f'Output files will be saved in folder: {output_path}')
+        logging.info(f"There are {torch.cuda.device_count()} GPUs and {multiprocessing.cpu_count()} CPUs.")
     
     if args.pre_train_tasks is not None:
         if args.pre_train_tasks == 'mlm':
@@ -239,17 +245,30 @@ def main():
                                     file_path=args.input_file,
                                     mlm=args.mlm_percentage if bert_class == 'BertForMaskedLM' or bert_class == 'BertForPreTraining' else 0)
         train_dataset, test_dataset = torch.utils.data.random_split(dataset, [.8,.2])
+        if not args.do_train:
+            del train_dataset
+        if not args.do_eval:
+            del test_dataset
     elif os.path.isdir(args.input_file):
         train_file = os.path.join(args.input_file, 'train.txt')
         test_file = os.path.join(args.input_file, 'test.txt')
         assert os.path.isfile(train_file) and os.path.isfile(test_file), \
             'Folder passed as input file but no train.txt or test.txt file found'
-        train_dataset = NewPreTrainingDataset(tokenizer,
+        if args.do_train:
+            train_dataset = NewPreTrainingDataset(tokenizer,
                                     file_path=train_file,
                                     mlm=args.mlm_percentage if bert_class == 'BertForMaskedLM' or bert_class == 'BertForPreTraining' else 0)
-        test_dataset = NewPreTrainingDataset(tokenizer,
+        if args.do_eval:
+            test_dataset = NewPreTrainingDataset(tokenizer,
                                     file_path=test_file,
                                     mlm=args.mlm_percentage if bert_class == 'BertForMaskedLM' or bert_class == 'BertForPreTraining' else 0)
+    
+    if args.do_train and args.do_eval:  
+        logging.info(f'There are {len(train_dataset)} documents in the train datatset and {len(test_dataset)} in the evaluation one.')
+    elif args.do_train:
+        logging.info(f'Only the train will be performed. There are {len(train_dataset)} documents in the dataset')
+    elif args.do_eval:
+        logging.info(f'Only the evaluation will be performed. There are {len(test_dataset)} documents in the dataset')
     
     if args.do_train:
         model_output_path = os.path.join(output_path, 'pre_trained_model')
