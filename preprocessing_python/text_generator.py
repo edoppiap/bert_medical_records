@@ -317,14 +317,18 @@ def create_mlm_only_dataset(file_path, output_folder, output_name = 'class_text_
     for (patient,_),rows in tqdm(df.groupby(['Assistito_CodiceFiscale_Criptato','sentence']), desc='Creating output lists'):
         if current_patient is None or patient != current_patient:
             if current_patient is not None:
+                doc = '[CLS] '+' '.join(sentences[::-1])
                 docs.append(doc) #add the previous line
-            doc = '[CLS] '
+            sentences = []
             current_patient = patient
-        doc += ' '.join(types_dict[rows['Type_event'].iloc[0]]+rows['Code_event']) + " [SEP] "
+        sentences.append(' '.join(types_dict[rows['Type_event'].iloc[0]]+rows['Code_event']) + " [SEP]")
+    doc = '[CLS] '+' '.join(sentences[::-1])
     docs.append(doc) # add the last line
 
-    if split is True:
+    if split:
         train,test = train_test_split(docs, test_size=.2, random_state=42, shuffle=True)
+        if not os.path.exists(output_folder):
+            os.makedirs(output_folder)
         output_files = [os.path.join(output_folder, 'train.txt'),os.path.join(output_folder,'test.txt')]
         print('Creating train and text output files')
         for output_file,split in zip(output_files,[train,test]):
