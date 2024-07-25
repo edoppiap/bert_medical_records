@@ -405,13 +405,14 @@ if __name__ == '__main__':
                               output_name=args.output_name)
         
     if args.create_finetuning_text_data:
-        create_finetune_text_from_data(output_folder=args.output_folder,
+        create_finetuning_dataset(output_folder=args.output_folder,
                                        file_path=args.file_path,
                                        output_name=args.output_name)
     if args.create_infer_text_data:
         create_infer_from_data(args.file_path, 
                               output_folder=args.output_folder, 
-                              output_name=args.output_name)
+                              output_name=args.output_name,
+                              split=args.split)
         
     if args.create_nsp_text_file:
         create_nsp_dataset(args.file_path,
