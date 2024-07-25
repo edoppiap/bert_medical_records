@@ -243,6 +243,7 @@ def main():
     if os.path.isfile(args.input_file):
         dataset = NewPreTrainingDataset(tokenizer,
                                     file_path=args.input_file,
+                                    max_length=args.max_seq_length,
                                     mlm=args.mlm_percentage if bert_class == 'BertForMaskedLM' or bert_class == 'BertForPreTraining' else 0)
         train_dataset, test_dataset = torch.utils.data.random_split(dataset, [.8,.2])
         if not args.do_train:
@@ -257,10 +258,12 @@ def main():
         if args.do_train:
             train_dataset = NewPreTrainingDataset(tokenizer,
                                     file_path=train_file,
+                                    max_length=args.max_seq_length,
                                     mlm=args.mlm_percentage if bert_class == 'BertForMaskedLM' or bert_class == 'BertForPreTraining' else 0)
         if args.do_eval:
             test_dataset = NewPreTrainingDataset(tokenizer,
                                     file_path=test_file,
+                                    max_length=args.max_seq_length,
                                     mlm=args.mlm_percentage if bert_class == 'BertForMaskedLM' or bert_class == 'BertForPreTraining' else 0)
     
     if args.do_train and args.do_eval:  
