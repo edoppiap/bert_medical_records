@@ -195,34 +195,31 @@ def main():
         or (args.use_pretrained_bert and args.do_eval), \
             '--do_eval present without one between --do_train, --model_input or --use_pretrained_bert. You need to train, pass or select a pretrain model to evaluate'
     
-    if args.do_train:
-        if args.output_dir:
-            output_path = args.output_dir
-            if not os.path.exists(output_path):
-                os.makedirs(output_path)
-        else:
-            current_directory = os.path.dirname(os.path.abspath(__file__))
-            current_time = datetime.now().strftime("%d-%m-%Y_%H-%M")
-            output_path = os.path.join(current_directory, 'logs',current_time)
-            if not os.path.exists(output_path):
-                os.makedirs(output_path)
-                
-        setup_logging(args.output_dir, console="debug")
-
-        logging.info(f'Arguments: {args}')
-        logging.info(" ".join(sys.argv))    
-        logging.info(f'Output files will be saved in folder: {output_path}')
-        logging.info(f"There are {torch.cuda.device_count()} GPUs and {multiprocessing.cpu_count()} CPUs.")
-    
-    if args.pre_train_tasks is not None:
-        if args.pre_train_tasks == 'mlm':
-            bert_class = 'BertForMaskedLM'
-        elif args.pre_train_tasks == 'nsp':
-            bert_class = 'BertForNextSentencePrediction'
-        elif args.pre_train_tasks == 'mlm_nsp':
-            bert_class = 'BertForPreTraining'
+    if args.output_dir:
+        output_path = args.output_dir
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
     else:
-        bert_class = args.bert_class
+        current_directory = os.path.dirname(os.path.abspath(__file__))
+        current_time = datetime.now().strftime("%d-%m-%Y_%H-%M")
+        output_path = os.path.join(current_directory, 'logs',current_time)
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
+                
+    setup_logging(args.output_dir, console="debug")
+
+    logging.info(f'Arguments: {args}')
+    logging.info(" ".join(sys.argv))    
+    logging.info(f'Output files will be saved in folder: {output_path}')
+    logging.info(f"There are {torch.cuda.device_count()} GPUs and {multiprocessing.cpu_count()} CPUs.")
+
+    logging.info(f'Pretrain task selected: {args.pre_train_tasks}')
+    if args.pre_train_tasks == 'mlm':
+        bert_class = 'BertForMaskedLM'
+    elif args.pre_train_tasks == 'nsp':
+        bert_class = 'BertForNextSentencePrediction'
+    elif args.pre_train_tasks == 'mlm_nsp':
+        bert_class = 'BertForPreTraining'
         
     if args.model_input:
         model_path = os.path.join(args.model_input, 'pre_trained_model')
@@ -266,12 +263,21 @@ def main():
                                     max_length=args.max_seq_length,
                                     mlm=args.mlm_percentage if bert_class == 'BertForMaskedLM' or bert_class == 'BertForPreTraining' else 0)
     
-    if args.do_train and args.do_eval:  
-        logging.info(f'There are {len(train_dataset)} documents in the train datatset and {len(test_dataset)} in the evaluation one.')
+    if args.do_train and args.do_eval: 
+        if args.pre_train_tasks == 'nsp' or args.pre_train_tasks == 'mlm_nsp':
+            logging.info(f'There are {len(train_dataset)} pairs of sequences in the train dataset and {len(test_dataset)} in the evaluation one.')
+        else:
+            logging.info(f'There are {len(train_dataset)} documents in the train datatset and {len(test_dataset)} in the evaluation one.')
     elif args.do_train:
-        logging.info(f'Only the train will be performed. There are {len(train_dataset)} documents in the dataset')
+        if args.pre_train_tasks == 'nsp' or args.pre_train_tasks == 'mlm_nsp':
+            logging.info(f'Only the train will be performed. There are {len(train_dataset)} pairs of sequences in the dataset')
+        else:
+            logging.info(f'Only the train will be performed. There are {len(train_dataset)} documents in the dataset')
     elif args.do_eval:
-        logging.info(f'Only the evaluation will be performed. There are {len(test_dataset)} documents in the dataset')
+        if args.pre_train_tasks == 'nsp' or args.pre_train_tasks == 'mlm_nsp':
+            logging.info(f'Only the evaluation will be performed. There are {len(test_dataset)} pairs of sequences in the dataset')
+        else:
+            logging.info(f'Only the evaluation will be performed. There are {len(test_dataset)} documents in the dataset')
     
     if args.do_train:
         model_output_path = os.path.join(output_path, 'pre_trained_model')
