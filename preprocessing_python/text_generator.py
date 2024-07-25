@@ -10,6 +10,7 @@ import streamlit as st
 from datetime import datetime, timedelta
 import argparse
 import random
+from sklearn.model_selection import train_test_split
 
 def read_csv_dataset(file_path):
     with open(file_path, 'r', newline='') as f:
@@ -379,7 +380,6 @@ def create_text_from_data(dataframe_or_file_path, output_folder, output_name = '
     return text_dataset_path
         
 if __name__ == '__main__':
-    from sklearn.model_selection import train_test_split
     
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     

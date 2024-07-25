@@ -3,6 +3,8 @@ from transformers import BertTokenizerFast
 from torch.utils.data import DataLoader
 from transformers.data.metrics import acc_and_f1
 
+import logging
+import multiprocessing
 import os
 from datetime import datetime
 import torch
@@ -13,22 +15,27 @@ import pandas as pd
 from custom_parser import parse_arguments
 from load_dataset import NewFinetuningDataset, InferDataset
 from optimizer import get_optimizer
+from transformers import get_scheduler
 
 def train(args, train_dataset, model, model_path):
     loader = DataLoader(train_dataset, batch_size=args.train_batch_size,
                         shuffle=True)
     
     optim = get_optimizer(parameters=model.parameters(), lr=args.learning_rate)
+    scheduler = get_scheduler(name=args.scheduler_name, 
+                              optimizer=optim, 
+                              num_warmup_steps=args.num_warmup_steps, 
+                              num_training_steps=args.num_train_steps)
     
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     
     model.to(device)
     model.train()
+    global_step = 0
     
     for epoch in range(args.num_epochs):
         loop = tqdm(loader, leave=True)
-        for batch in loop:
-            optim.zero_grad()
+        for step,batch in enumerate(loop):
             
             input_ids = batch['input_ids'].to(device)
             token_type_ids = batch['token_type_ids'].to(device)
@@ -42,16 +49,40 @@ def train(args, train_dataset, model, model_path):
             
             loss = outputs.loss
             loss.backward()
-            optim.step()
+            
+            if (step+1) % args.gradient_accumulation_steps == 0:
+                optim.step()
+                scheduler.step()
+                optim.zero_grad()
+                global_step += 1
+                
+                if global_step % args.save_checkpoints_steps == 0:
+                    checkpoint_prefix = 'checkpoint'
+                    checkpoint_path = os.path.join(args.output_dir, f'{checkpoint_prefix}-{global_step}')
+                    if not os.path.exists(checkpoint_path):
+                        os.makedirs(checkpoint_path)
+                    model.save_pretrained(checkpoint_path)
+                    torch.save(args, os.path.join(checkpoint_path, 'training_args.bin'))
+                    logging.info(f'Saving model checkpoint to {checkpoint_path}')
             
             loop.set_description(f'Epoch {epoch}')
             loop.set_postfix(loss=loss.item())
             
+            if args.num_train_steps > 0 and global_step > args.num_train_steps:
+                loop.close()
+                break
+            
+        if args.num_train_steps > 0 and global_step > args.num_train_steps:
+            break
+            
     model.save_pretrained(model_path)
+    torch.save(args, os.path.join(args.output_dir, 'training_args.bin'))
     return loss
 
+
+# Oltre ad F1 andrebbe calcolato anche il recall e precision
 def compute_metrics(preds, truths):
-    print(sum(preds==truths))
+    logging.info(sum(preds==truths))
     return acc_and_f1(preds, truths)
 
 def eval(args, test_dataset, model, output_folder):
@@ -155,7 +186,8 @@ def main():
         if not os.path.exists(output_path):
             os.makedirs(output_path)
         
-    print(f'Output files will be saved in folder: {output_path}')
+    logging.info(f"There are {torch.cuda.device_count()} GPUs and {multiprocessing.cpu_count()} CPUs.")
+    logging.info(f'Output files will be saved in folder: {output_path}')
     
     model_path = os.path.join(output_path, 'finetuned_model')
     
@@ -164,9 +196,9 @@ def main():
         model = BertForSequenceClassification.from_pretrained('bert-base-uncased')
         
     else:    
-        tokenzier_folder = os.path.join(args.model_input, 'tokenizer')
-        if os.path.exists(tokenzier_folder):
-            tokenizer = BertTokenizerFast.from_pretrained(tokenzier_folder)
+        tokenizer_folder = os.path.join(args.model_input, 'tokenizer')
+        if os.path.exists(tokenizer_folder):
+            tokenizer = BertTokenizerFast.from_pretrained(tokenizer_folder)
         else:
             tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
         
@@ -190,11 +222,11 @@ def main():
     
     if args.do_train:
         loss = train(args, train_dataset, model, model_path)
-        print(f'Average loss = {loss}')
+        logging.info(f'Average loss = {loss}')
     if args.do_eval:
         result = eval(args, test_dataset, model, output_folder=model_path)
         
-        print(f'{result = }')
+        logging.info(f'{result = }')
     if args.predict:
         preds = predict(args, dataset, model, output_folder=model_path)
         

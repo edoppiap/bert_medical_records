@@ -97,7 +97,7 @@ def parse_arguments():
     parser.add_argument('--gradient_accumulation_steps', type=int, default=1,
                         help="Number of updates steps to accumulate before performing a backward/update pass.")
     parser.add_argument('--num_train_steps', type=int, default=0,
-                        help='Number of training steps.')
+                        help='Number of training steps. If > 0 override num_train_epochs')
     parser.add_argument('--num_warmup_steps', type=int, default=500,
                         help='Number of warmup steps.')
     parser.add_argument('--eval_interval_steps', type=int, default=10_000,

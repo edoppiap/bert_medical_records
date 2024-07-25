@@ -83,6 +83,9 @@ def train(args, train_dataset, model, output_path):
             if args.num_train_steps > 0 and global_step > args.num_train_steps:
                 loop.close()
                 break
+        
+        if args.num_train_steps > 0 and global_step > args.num_train_steps:
+            break
             
     model.save_pretrained(output_path)
     torch.save(args, os.path.join(output_path, 'training_args.bin'))

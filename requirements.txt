@@ -1,8 +1,9 @@
-datasets==2.15.0
-pandas==1.5.3
-tokenizers==0.15.0
-transformers==4.35.2
-accelerate>=0.20.1
-streamlit>=1.29.0
+datasets
+pandas
+tokenizers
+transformers
+accelerate
+streamlit
+scikit-learn
 stqdm
 torch
