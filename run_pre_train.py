@@ -72,7 +72,7 @@ def train(args, train_dataset, model, output_path):
                 
                 if global_step % args.save_checkpoints_steps == 0:
                     checkpoint_prefix = 'checkpoint'
-                    checkpoint_path = os.path.join(args.output_dir, f'{checkpoint_prefix}-{global_step}')
+                    checkpoint_path = os.path.join(output_path, f'{checkpoint_prefix}-{global_step}')
                     if not os.path.exists(checkpoint_path):
                         os.makedirs(checkpoint_path)
                     model.save_pretrained(checkpoint_path)
@@ -206,7 +206,7 @@ def main():
         if not os.path.exists(output_path):
             os.makedirs(output_path)
                 
-    setup_logging(args.output_dir, console="debug")
+    setup_logging(output_path, console="debug")
 
     logging.info(f'Arguments: {args}')
     logging.info(" ".join(sys.argv))    

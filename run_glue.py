@@ -19,7 +19,7 @@ from load_dataset import NewFinetuningDataset, InferDataset
 from optimizer import get_optimizer
 from transformers import get_scheduler
 
-def train(args, train_dataset, model, model_path):
+def train(args, train_dataset, model, model_path, output_path):
     start_time = datetime.now()
     loader = DataLoader(train_dataset, batch_size=args.train_batch_size,
                         shuffle=True)
@@ -62,7 +62,7 @@ def train(args, train_dataset, model, model_path):
                 
                 if global_step % args.save_checkpoints_steps == 0:
                     checkpoint_prefix = 'checkpoint'
-                    checkpoint_path = os.path.join(args.output_dir, f'{checkpoint_prefix}-{global_step}')
+                    checkpoint_path = os.path.join(output_path, f'{checkpoint_prefix}-{global_step}')
                     if not os.path.exists(checkpoint_path):
                         os.makedirs(checkpoint_path)
                     model.save_pretrained(checkpoint_path)
@@ -83,7 +83,7 @@ def train(args, train_dataset, model, model_path):
     
     logging.info(f"Trained for {epoch + 1:02d} epochs, in total in {str(datetime.now() - start_time)[:-7]}")
     model.save_pretrained(model_path)
-    torch.save(args, os.path.join(args.output_dir, 'training_args.bin'))
+    torch.save(args, os.path.join(output_path, 'training_args.bin'))
     return loss
 
 
@@ -193,7 +193,13 @@ def main():
         if not os.path.exists(output_path):
             os.makedirs(output_path)
             
-    setup_logging(args.output_dir, console='debug')
+    setup_logging(output_path, console='debug')
+    
+    if args.model_input:
+        model_folder = os.path.join(args.model_input, 'pre_trained_model')
+        loaded_args = torch.load(os.path.join(model_folder, 'training_args.bin'))
+        
+        args.max_seq_length = loaded_args.max_seq_length
         
     logging.info(f'Arguments: {args}')
     logging.info(" ".join(sys.argv))    
@@ -248,7 +254,7 @@ def main():
                                         max_length=args.max_seq_length)
     else:
         dataset = InferDataset(tokenizer, 
-                                file_path=args.input_file, 
+                                file_path=args.input_file,
                                 max_length=args.max_seq_length)
         
     if args.do_train and args.do_eval:  
@@ -261,7 +267,7 @@ def main():
         logging.info(f'It will predict labels for the dataset. There are {len(dataset)} documents in the dataset.')
     
     if args.do_train:
-        loss = train(args, train_dataset, model, model_path)
+        loss = train(args, train_dataset, model, model_path, output_path)
         logging.info(f'Average loss = {loss}')
     if args.do_eval:
         result = eval(args, test_dataset, model, output_folder=model_path)

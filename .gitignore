@@ -2,5 +2,6 @@
 /logs/**
 /build
 /dist
+/output
 
 /.env
