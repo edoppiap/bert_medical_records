@@ -186,6 +186,10 @@ def main():
         output_path = args.output_dir
         if not os.path.exists(output_path):
             os.makedirs(output_path)
+    elif args.model_input:
+        assert os.path.exists(args.model_input) and os.path.isdir(args.model_input), \
+            'Path for model input not valid'
+        output_path = args.model_input
     else:
         current_directory = os.path.dirname(os.path.abspath(__file__))
         current_time = datetime.now().strftime("%d-%m-%Y_%H-%M")
@@ -201,9 +205,12 @@ def main():
         
         args.max_seq_length = loaded_args.max_seq_length
         
+    logging.info(f'\nStart finetuning')
     logging.info(f'Arguments: {args}')
     logging.info(" ".join(sys.argv))    
     logging.info(f'Output files will be saved in folder: {output_path}')
+    if output_path == args.model_input:
+        logging.info('Saving the model in the same folder of the pretrained one')
     logging.info(f"There are {torch.cuda.device_count()} GPUs and {multiprocessing.cpu_count()} CPUs.")
     
     model_path = os.path.join(output_path, 'finetuned_model')

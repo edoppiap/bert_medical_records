@@ -202,7 +202,7 @@ def main():
     else:
         current_directory = os.path.dirname(os.path.abspath(__file__))
         current_time = datetime.now().strftime("%d-%m-%Y_%H-%M")
-        output_path = os.path.join(current_directory, 'logs',current_time)
+        output_path = os.path.join(current_directory, 'output',current_time)
         if not os.path.exists(output_path):
             os.makedirs(output_path)
                 
