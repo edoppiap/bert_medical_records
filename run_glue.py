@@ -13,6 +13,7 @@ from tqdm import tqdm
 import numpy as np
 import pandas as pd
 
+from utils import setup_logging
 from custom_parser import parse_arguments
 from load_dataset import NewFinetuningDataset, InferDataset
 from optimizer import get_optimizer
@@ -191,6 +192,8 @@ def main():
         output_path = os.path.join(current_directory, 'logs',current_time)
         if not os.path.exists(output_path):
             os.makedirs(output_path)
+            
+    setup_logging(args.output_dir, console='debug')
         
     logging.info(f'Arguments: {args}')
     logging.info(" ".join(sys.argv))    
@@ -212,7 +215,11 @@ def main():
         
         if args.do_train:
             model_folder = os.path.join(args.model_input, 'pre_trained_model')
-            model = BertForSequenceClassification.from_pretrained(model_folder)
+            logging.info(f'Loading pretrained model from {model_folder}')
+            try:
+                model = BertForSequenceClassification.from_pretrained(model_folder)
+            except:
+                model = BertForSequenceClassification.from_pretrained(args.model_input)
         elif args.predict:
             model = BertForSequenceClassification.from_pretrained(args.model_input)
     
