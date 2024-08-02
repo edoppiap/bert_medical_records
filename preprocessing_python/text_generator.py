@@ -165,7 +165,7 @@ def create_finetune_text_from_data(output_folder, file_path='data\PHeP_simulated
             sentences = [' '.join(item) for item in di]
             file.write('[CLS] ' + ' [SEP] '.join(sentences) + f' <end> {label}\n\n')
             
-def create_nsp_dataset(file_path, output_folder, output_name='nsp_dataset.txt'):
+def create_nsp_dataset(file_path, output_folder, output_name='nsp_dataset.txt', split=False):
     bag = []
     with open(file_path, 'r', encoding='utf-8') as file:
         for line in file:
