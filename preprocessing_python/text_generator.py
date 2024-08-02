@@ -388,7 +388,7 @@ def create_text_from_data(dataframe_or_file_path, output_folder, output_name = '
         # if streamlit:
         #     my_bar.progress(i/(len(grouped_df)-1), text=progress_text)
 
-    results = '\n'.join(results)
+    # results = '\n'.join(results)
         
     if split:
         train,test = train_test_split(results, test_size=.2, random_state=42, shuffle=True)
