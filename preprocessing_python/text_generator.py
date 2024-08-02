@@ -195,11 +195,24 @@ def create_nsp_dataset(file_path, output_folder, output_name='nsp_dataset.txt'):
     
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
-    output_file_path = os.path.join(output_folder, output_name)
     
-    with open(output_file_path, 'w', encoding='utf-8') as file:
-        for sentence_a, sentence_b, label in tqdm(zip(sentences_a, sentences_b, labels), desc='Creating nsp dataset'):
-            file.write(f'[CLS] {sentence_a} [SEP] {sentence_b} <end> {label}\n\n')
+    pairs = []
+    for sentence_a, sentence_b, label in tqdm(zip(sentences_a, sentences_b, labels), desc='Creating nsp dataset'):
+        pairs.append(f'[CLS] {sentence_a} [SEP] {sentence_b} <end> {label}')
+    
+    if split:
+        train,test = train_test_split(pairs, test_size=.2, random_state=42, shuffle=True)
+        if not os.path.exists(output_folder):
+            os.makedirs(output_folder)
+            
+        output_files = [os.path.join(output_folder, 'train.txt'),os.path.join(output_folder,'test.txt')]
+        for output_file,split in zip(output_files,[train,test]):
+            with open(output_file, 'w') as file:
+                file.write('\n'.join(split))
+    else:
+        with open(os.path.join(output_folder, output_name), 'w') as file:
+            file.write('\n'.join(pairs))
+    
             
 def create_class_nsp_dataset(file_path, output_folder, output_name = 'class_nsp_dataset.txt', split=False):        
     df, types_dict = read_csv_dataset(file_path)
@@ -338,7 +351,7 @@ def create_mlm_only_dataset(file_path, output_folder, output_name = 'class_text_
         with open(os.path.join(output_folder, output_name), 'w') as file:
             file.write('\n'.join(docs))
 
-def create_text_from_data(dataframe_or_file_path, output_folder, output_name = 'text_dataset.txt', streamlit=False):
+def create_text_from_data(dataframe_or_file_path, output_folder, output_name = 'text_dataset.txt', streamlit=False, split=False, nsp=False):
     #output_path = os.path.join(dataframe_or_folder, text_generated_name)
     if isinstance(dataframe_or_file_path, pd.DataFrame): # it means that there is directly the df file
         grouped_df = dataframe_or_file_path.groupby('patientID')
@@ -376,12 +389,19 @@ def create_text_from_data(dataframe_or_file_path, output_folder, output_name = '
         #     my_bar.progress(i/(len(grouped_df)-1), text=progress_text)
 
     results = '\n'.join(results)
-    
-    text_dataset_path = os.path.join(output_folder, output_name)
-    with open(text_dataset_path, 'w') as file:
-        file.write(results)
         
-    return text_dataset_path
+    if split:
+        train,test = train_test_split(results, test_size=.2, random_state=42, shuffle=True)
+        if not os.path.exists(output_folder):
+            os.makedirs(output_folder)
+        output_files = [os.path.join(output_folder, 'train.txt'),os.path.join(output_folder,'test.txt')]
+        print('Creating train and text output files')
+        for output_file,split in zip(output_files,[train,test]):
+            with open(output_file, 'w') as file:
+                file.write('\n'.join(split))
+    else:
+        with open(os.path.join(output_folder, output_name), 'w') as file:
+            file.write('\n'.join(results))
         
 if __name__ == '__main__':
     
@@ -406,7 +426,8 @@ if __name__ == '__main__':
     if args.create_pretrain_text_file:
         create_text_from_data(args.file_path, 
                               output_folder=args.output_folder, 
-                              output_name=args.output_name)
+                              output_name=args.output_name,
+                              split=args.split)
         
     if args.create_finetuning_text_data:
         create_finetuning_dataset(output_folder=args.output_folder,
@@ -421,7 +442,8 @@ if __name__ == '__main__':
     if args.create_nsp_text_file:
         create_nsp_dataset(args.file_path,
                            output_folder=args.output_folder,
-                           output_name=args.output_name)
+                           output_name=args.output_name,
+                           split=args.split)
     
     if args.create_mlm_only_dataset:
         create_mlm_only_dataset(args.file_path,
