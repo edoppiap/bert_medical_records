@@ -87,11 +87,12 @@ def train(args, train_dataset, model, output_path):
                 loop.close()
                 break
         
-        logging.debug(f"Epoch {epoch:02d} in {str(datetime.now() - epoch_start_time)[:-7]}, "
+        logging.info(f"Epoch {epoch:02d} in {str(datetime.now() - epoch_start_time)[:-7]}, "
                   f"loss = {loss:.4f}")
         if args.num_train_steps > 0 and global_step > args.num_train_steps:
             break
-            
+    
+    logging.info(f"Trained for {epoch + 1:02d} epochs, in total in {str(datetime.now() - start_time)[:-7]}")
     model.save_pretrained(output_path)
     torch.save(args, os.path.join(output_path, 'training_args.bin'))
     return loss
