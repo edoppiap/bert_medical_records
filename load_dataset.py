@@ -145,7 +145,7 @@ class NewPreTrainingDataset(torch.utils.data.Dataset):
       
       inputs = self.tokenizer(sentence_a.decode('utf-8'), sentence_b.decode('utf-8'), return_tensors='pt',
                               max_length=self.max_length, truncation=True, padding='max_length')
-      inputs['next_sentence_label'] = torch.LongTensor([label]).mT
+      inputs['next_sentence_label'] = torch.LongTensor([label]).T
       
     else:
       inputs = self.tokenizer(doc.decode('utf-8'), return_tensors='pt',
