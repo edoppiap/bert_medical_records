@@ -87,9 +87,9 @@ def parse_arguments():
                         help='Total batch size for training.')
     parser.add_argument('--eval_batch_size', type=int, default=9,
                         help='Total batch size for eval.')
-    parser.add_argument('--learning_rate', type=float, default=1e-8,
+    parser.add_argument('--learning_rate', type=float, default=5e-5,
                         help='The initial learning rate for AdamW')
-    parser.add_argument('--adam_epsilon', type=float, default=5e-5,
+    parser.add_argument('--adam_epsilon', type=float, default=1e-8,
                         help='The initial epsilon value for AdamW')
     parser.add_argument('--scheduler_name', type=str, default='constant_with_warmup',
                         choices=['linear', 'cosine', 'cosine_with_restarts', 'polynomial', 'constant', 'constant_with_warmup', 'inverse_sqrt', 'reduce_lr_on_plateau', 'cosine_with_min_lr', 'warmup_stable_decay'],
@@ -98,7 +98,7 @@ def parse_arguments():
                         help="Number of updates steps to accumulate before performing a backward/update pass.")
     parser.add_argument('--num_train_steps', type=int, default=0,
                         help='Number of training steps. If > 0 override num_train_epochs')
-    parser.add_argument('--num_warmup_steps', type=int, default=500,
+    parser.add_argument('--num_warmup_steps', type=int, default=0,
                         help='Number of warmup steps.')
     parser.add_argument('--eval_interval_steps', type=int, default=10_000,
                         help='Number of steps between evaluations.')
