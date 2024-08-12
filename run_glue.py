@@ -78,7 +78,7 @@ def train(args, train_dataset, model, model_path, output_path):
                 loop.close()
                 break
             
-        logging.debug(f"Epoch {epoch:02d} in {str(datetime.now() - epoch_start_time)[:-7]}, "
+        logging.info(f"Epoch {epoch:02d} in {str(datetime.now() - epoch_start_time)[:-7]}, "
                   f"loss = {loss:.4f}")
         if args.num_train_steps > 0 and global_step > args.num_train_steps:
             break
