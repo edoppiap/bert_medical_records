@@ -85,7 +85,7 @@ def train(args, train_dataset, model, model_path, output_path):
     
     logging.info(f"Trained for {epoch + 1:02d} epochs, in total in {str(datetime.now() - start_time)[:-7]}")
     model.save_pretrained(model_path)
-    torch.save(args, os.path.join(output_path, 'training_args.bin'))
+    torch.save(args, os.path.join(model_path, 'training_args.bin'))
     return loss
 
 

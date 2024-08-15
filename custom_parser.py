@@ -15,8 +15,8 @@ def parse_arguments():
                         help='Tokenizer used during pre-train')
     parser.add_argument('--pre_trained_tokenizer_path', type=str, default=None,
                         help='Use this argument to pass the folder path for an already pretrained version of the tokenizer')
-    parser.add_argument('--bert_class', type=str, default='BertForMaskedLM',
-                        choices=['BertForMaskedLM', 'BertForNextSentencePrediction', 'BertForPreTraining'])
+    # parser.add_argument('--bert_class', type=str, default=None,
+    #                     choices=['BertForMaskedLM', 'BertForNextSentencePrediction', 'BertForPreTraining'])
     parser.add_argument('--pre_train_tasks', type=str, default=None,
                         choices=['mlm', 'nsp', 'mlm_nsp'])
     parser.add_argument('--mlm_percentage', type=float, default=.15,
@@ -25,7 +25,7 @@ def parse_arguments():
     parser.add_argument('--model_input', type=str, 
                         help='Use this argument to pass the folder where find the pre-trained model')
     parser.add_argument('--optimizer', type=str, default='AdamW', choices=['AdamW'],
-                        help='Name of optimizer to use')
+                        help='Name of optimizer to use') # TRY SOME NEW OPTIMIZER
     parser.add_argument('--num_epochs', type=int, default=2,
                         help='Number of epochs with which to train the model')
     parser.add_argument('--use_pretrained_bert', action='store_true',
