@@ -202,8 +202,8 @@ def main():
     setup_logging(output_path, console='debug')
     
     if args.model_input:
-        model_folder = os.path.join(args.model_input, 'pre_trained_model')
-        loaded_args = torch.load(os.path.join(model_folder, 'training_args.bin'))
+        # model_folder = os.path.join(args.model_input, 'pre_trained_model')
+        loaded_args = torch.load(os.path.join(args.model_input, 'training_args.bin'))
         
         args.max_seq_length = loaded_args.max_seq_length
         
