@@ -167,7 +167,42 @@ def predict(args, data, model, output_folder):
             preds = np.append(preds, logits.detach().cpu().numpy(), axis=0)
     preds = np.argmax(preds, axis=1)
     
-    return preds        
+    return preds
+
+def load_training_args(args):
+    # TODO: if an input model has been passed, do some check to see if the arguments are correctly passed.
+    # Override the parser arguments and load the saved ones.
+    
+    finetune_model_folder = os.path.join(args.model_input, 'finetuned_model')
+    pretrain_model_folder = os.path.join(args.model_input, 'pre_trained_model')
+    if os.path.exists(os.path.join(args.model_input, 'training_args.bin')):
+        loaded_args = torch.load(os.path.join(args.model_input, 'training_args.bin'))
+        logging.info('Loaded training arguments from provided folder')
+    elif os.path.exists(os.path.join(finetune_model_folder, 'training_args.bin')):
+        loaded_args = torch.load(os.path.join(finetune_model_folder, 'training_args.bin'))
+        logging.info('Loaded training arguments from finetuned_model')
+    elif os.path.isdir(os.path.join(pretrain_model_folder, 'training_args.bin')):
+        loaded_args = torch.load(os.path.join(pretrain_model_folder, 'training_args.bin'))
+        logging.info('Loaded training arguments from pretrained_model')
+    else:
+        logging.info('No saved training arguments found')
+        return args
+    
+    if args.max_seq_length != loaded_args.max_seq_length:
+        logging.info('Detected loaded arguments different from command arguments. BERT config arguments will override the specified ones.')
+        args.max_seq_length = loaded_args.max_seq_length
+        args.hidden_size = loaded_args.hidden_size
+        args.num_hidden_layers = loaded_args.num_hidden_layers
+        args.num_attention_heads = loaded_args.num_attention_heads
+        args.intermediate_size = loaded_args.intermediate_size
+        args.hidden_act = loaded_args.hidden_act
+        args.hidden_dropout_prob = loaded_args.hidden_dropout_prob
+        args.attention_probs_dropout_prob = loaded_args.attention_probs_dropout_prob
+        args.initializer_range = loaded_args.initializer_range
+        args.layer_norm_eps = loaded_args.layer_norm_eps
+        args.type_vocab_size = loaded_args.type_vocab_size        
+        
+    return args
 
 def main():
     args = parse_arguments()
@@ -202,10 +237,10 @@ def main():
     setup_logging(output_path, console='debug')
     
     if args.model_input:
+        args = load_training_args(args)
         # model_folder = os.path.join(args.model_input, 'pre_trained_model')
-        loaded_args = torch.load(os.path.join(args.model_input, 'training_args.bin'))
-        
-        args.max_seq_length = loaded_args.max_seq_length
+        # loaded_args = torch.load(os.path.join(args.model_input, 'training_args.bin'))
+        # args.max_seq_length = loaded_args.max_seq_length
         
     logging.info(f'\nStart finetuning')
     logging.info(f'Arguments: {args}')
