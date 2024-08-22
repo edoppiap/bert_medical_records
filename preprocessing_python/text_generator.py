@@ -11,8 +11,162 @@ from datetime import datetime, timedelta
 import argparse
 import random
 from sklearn.model_selection import train_test_split
+import logging
 
-def read_csv_dataset(file_path):
+FORMAT_COLUMNS = {
+    'format_2' : ['patientID', 'sex', 'age', 'main_ICD9', 'ICD9_1', 'ICD9_2', 'ICD9_3', 'ICD9_4', 'ICD9_5', 'date_admission', 'date_discharge'],
+    'format_3' : ['Assistito_CodiceFiscale_Criptato', 'Data', 'Code_event', 'Type_event', 'sentence', 'Description_event']
+}
+
+#----------------------------------------------------------------------------------------------------------------------------------------------------------------------#
+#   
+#   Format_1: ['keyone', 'GENERE', 'eta_inizio', ...]
+#
+#
+
+#----------------------------------------------------------------------------------------------------------------------------------------------------------------------#
+# 
+#   Format_2: ['patientID', 'seg', 'age', ...]
+#
+#
+
+def format_2_read_csv(file_path,read_hosp=False):
+    df = pd.read_csv(file_path, index_col=0).groupby('patientID')
+    
+    patient_dict = {}
+    
+    for patientID,patient in tqdm(df, desc='Reading input file'):
+        diagnoses = []
+        if read_hosp: hospitalisations = []
+        for _,row in patient.iterrows():
+            diagnosis = [row['main_ICD9']]
+            if not pd.isna(row['ICD9_1']):
+                diagnosis.append(row["ICD9_1"])
+            if not pd.isna(row['ICD9_2']):
+                diagnosis.append(row['ICD9_2'])
+            if not pd.isna(row['ICD9_3']):
+                diagnosis.append(row['ICD9_3'])
+            if not pd.isna(row['ICD9_4']):
+                diagnosis.append(row['ICD9_4'])
+            if not pd.isna(row['ICD9_5']):
+                diagnosis.append(row['ICD9_5'])
+
+            diagnoses.append(diagnosis)
+            
+            if read_hosp:
+                hospitalisations.append(datetime.strptime(str(row['date_admission']), "%Y-%m-%d"))
+        
+        patient_dict[patientID] = {
+            'diagnoses' : diagnoses
+        }
+        if read_hosp:
+            patient_dict[patientID]['hospitalisations'] = hospitalisations
+            
+    return patient_dict
+    
+
+def format_2_create_nsp(file_path):
+    patient_dict = format_2_read_csv(file_path)
+
+    bag = []
+    for _,value_dict in tqdm(patient_dict.items(), desc='Creating bag of sentences'):
+        sentences = [' '.join(item) for item in value_dict['diagnoses']]
+        bag.extend(sentences)
+    bag_size = len(bag)
+
+    pairs = []
+    for _,value_dict in tqdm(patient_dict.items(), desc='Creating pairs'):
+        sentences = [' '.join(item) for item in value_dict['diagnoses']]
+        num_sentences = len(sentences)
+        start = 0
+        while start < num_sentences - 2:
+            pair = '[CLS] ' + sentences[start] + ' [SEP] ' # sentence a
+            if random.random() > .5:
+                pair += sentences[start + 1] + ' <end> ' # sentence b
+                pair += '1' # they are consecutive
+            else:
+                pair += bag[random.randint(0,bag_size-1)] + ' <end> ' # sentence b
+                pair += '0' # they are not consecutive
+            start += 1
+            pairs.append(pair)
+    return pairs
+
+def format_2_create_infer(file_path):
+    """Function that generate the dataset for the Prediction out of the input csv file. It is needed only for development
+    reason.
+
+    Args:
+        dataframe_or_file_path (_type_): DataFrame object or a path to the input csv file
+        output_folder (_type_): Folder where to save the output text file
+        output_name (str, optional): Output file name. Defaults to 'infer_dataset.txt'.
+        streamlit (bool, optional): _description_. Defaults to False.
+
+    Returns:
+        _type_: The path in which has been save the text dataset
+    """
+    
+    patient_dict = format_2_read_csv(file_path)
+    
+    docs = []
+    for patientID,diagnoses in patient_dict.items():
+        diagnoses = diagnoses['diagnoses']
+        result = f'{str(patientID)}, [CLS] '
+        for diagnosis in diagnoses:
+            result += ' '.join(diagnoses) + ' [SEP]'
+        docs.append(result)
+        
+    return docs
+
+def format_2_create_finetune(file_path='data\PHeP_simulated_data.csv'):
+    """Function that generate the finetuning dataset, it delete the last hospitalization event and label the remaining events with 1 if the 
+    deleted event is earlier than 90 days, 0 otherwise
+
+    Args:
+        output_folder (_type_): Folder in which save the text_dataset
+        file_path (str, optional): _description_. Defaults to 'data\PHeP_simulated_data.csv'.
+        output_name (str, optional): _description_. Defaults to 'finetune_dataset.txt'.
+    """
+    patient_dict = format_2_read_csv(file_path, read_hosp=True)
+    
+    docs = []    
+    for _,value_dict in tqdm(patient_dict.items(), desc='Creating labeled sentences'):
+        di = value_dict['diagnoses']
+        hos = value_dict['hospitalisations']
+        
+        i = len(di)-1
+        while i > 0:
+        # if len(di) > 2:
+            sentences = [' '.join(item) for item in di[:i]]
+            if i == 1:
+                label = 0
+            else:
+                month_difference = abs((hos[i].year - hos[i-1].year)*12 + hos[i].month - hos[i-1].month)
+                if month_difference < 3:
+                    label = 1
+                else:
+                    label = 0
+            i-=1
+            docs.append('[CLS] ' + ' [SEP] '.join(sentences) + f' [SEP] <end> {str(label)}')
+            
+    return docs
+            
+def create_mlm_only_format_2(file_path):
+    patient_dict = format_2_read_csv(file_path)
+
+    docs = []
+    for _,value_dict in patient_dict.items():
+        sentences = [' '.join(item) for item in value_dict['diagnoses']]
+        docs.append('[CLS] ' + ' [SEP] '.join(sentences) + ' [SEP]')
+
+    return docs
+
+#----------------------------------------------------------------------------------------------------------------------------------------------------------------------#
+# 
+#   Format_3: ['Assistito_codice_fiscale_criptato', 'Data', 'Code_event', ...]
+# 
+#
+
+def read_csv_format_3(file_path):
     with open(file_path, 'r', newline='') as f:
         reader = csv.reader(f, delimiter=',', quotechar='"', escapechar='\\')
         columns = next(reader)
@@ -26,6 +180,10 @@ def read_csv_dataset(file_path):
                 row[1] = row[1].lstrip(',').rstrip('"')
                 row[0] = row[0]+','
             data.append(row)
+            
+    print(f'{columns = }\n{len(columns) = }')
+    print(f'{data[0] = }')
+    
 
     df = pd.DataFrame(data, columns=columns)
     
@@ -42,180 +200,11 @@ def is_less_than_3_month(date_1, date_2):
     date_2 = datetime.strptime(date_2, "%d/%m/%Y")
     
     # return if the two dates are less than 30 days apart
-    return abs(date_1 - date_2) < timedelta(days=90) 
-    
+    return abs(date_1 - date_2) < timedelta(days=90)
 
-def create_infer_from_data(dataframe_or_file_path, output_folder, output_name = 'infer_dataset.txt', streamlit=False):
-    """Function that generate the dataset for the Prediction out of the input csv file. It is needed only for development
-    reason.
-
-    Args:
-        dataframe_or_file_path (_type_): DataFrame object or a path to the input csv file
-        output_folder (_type_): Folder where to save the output text file
-        output_name (str, optional): Output file name. Defaults to 'infer_dataset.txt'.
-        streamlit (bool, optional): _description_. Defaults to False.
-
-    Returns:
-        _type_: The path in which has been save the text dataset
-    """
-    #output_path = os.path.join(dataframe_or_folder, text_generated_name)
-    if isinstance(dataframe_or_file_path, pd.DataFrame): # it means that there is directly the df file
-        grouped_df = dataframe_or_file_path.groupby('patientID')
-        
-    elif os.path.exists(dataframe_or_file_path):
-        df = pd.read_csv(dataframe_or_file_path, index_col=0)
-        grouped_df = df.groupby('patientID')
-    
-    progress_text = 'Producing text file from csv dataset'
-    if streamlit:
-        loop = stqdm(grouped_df, desc=progress_text)
-    else:
-        loop = tqdm(grouped_df, desc=progress_text)
-
-    results = []
-    for patientID, patient in loop:
-        result = f'{str(patientID)}, [CLS] '
-        #result = str(patientID) + '\n'
-        for _, row in patient.iterrows():
-            result = result + f"{row['main_ICD9']}"
-            if not pd.isna(row['ICD9_1']):
-                result = result + f' {row["ICD9_1"]}'
-            if not pd.isna(row['ICD9_2']):
-                result = result + f' {row["ICD9_2"]}'
-            if not pd.isna(row['ICD9_3']):
-                result = result + f' {row["ICD9_3"]}'
-            if not pd.isna(row['ICD9_4']):
-                result = result + f' {row["ICD9_4"]}'
-            if not pd.isna(row['ICD9_5']):
-                result = result + f' {row["ICD9_5"]}'
-            result = result + ' [SEP] '
-        results.append(result+'\n')
-        
-        # if streamlit:
-        #     my_bar.progress(i/(len(grouped_df)-1), text=progress_text)
-
-    results = '\n'.join(results)
-    
-    text_dataset_path = os.path.join(output_folder, output_name)
-    with open(text_dataset_path, 'w') as file:
-        file.write(results)
-        
-    return text_dataset_path
-
-def create_finetune_text_from_data(output_folder, file_path='data\PHeP_simulated_data.csv', output_name = 'finetune_dataset.txt'):
-    """Function that generate the finetuning dataset, it delete the last hospitalization event and label the remaining events with 1 if the 
-    deleted event is earlier than 90 days, 0 otherwise
-
-    Args:
-        output_folder (_type_): Folder in which save the text_dataset
-        file_path (str, optional): _description_. Defaults to 'data\PHeP_simulated_data.csv'.
-        output_name (str, optional): _description_. Defaults to 'finetune_dataset.txt'.
-    """
-    df = pd.read_csv(file_path, index_col=0)
-    
-    grouped_df = df.groupby('patientID')
-
-    all_diagnoses = []
-    all_hospitalisations = []
-
-    for _,patient in tqdm(grouped_df, desc='Reading input file'):
-        diagnoses = []
-        hospitalisations = []
-        for _,row in patient.iterrows():
-            diagnosis = [row['main_ICD9']]
-            if not pd.isna(row['ICD9_1']):
-                diagnosis.append(row["ICD9_1"])
-            if not pd.isna(row['ICD9_2']):
-                diagnosis.append(row['ICD9_2'])
-            if not pd.isna(row['ICD9_3']):
-                diagnosis.append(row['ICD9_3'])
-            if not pd.isna(row['ICD9_4']):
-                diagnosis.append(row['ICD9_4'])
-            if not pd.isna(row['ICD9_5']):
-                diagnosis.append(row['ICD9_5'])
-
-            diagnoses.append(diagnosis)
             
-            hospitalisations.append(datetime.strptime(str(row['date_admission']), "%Y-%m-%d"))
-    
-        all_diagnoses.append(diagnoses)
-        all_hospitalisations.append(hospitalisations)
-    
-    selected_di = []
-    labels = []
-
-    for di,hos in zip(all_diagnoses,all_hospitalisations):
-        i = len(di)-1
-        while i > 0:
-        # if len(di) > 2:
-            selected_di.append(di[:i])
-            if i == 1:
-                labels.append(0)
-                break
-            month_difference = abs((hos[i].year - hos[i-1].year)*12 + hos[i].month - hos[i-1].month)
-            if month_difference < 3:
-                labels.append(1)
-            else:
-                labels.append(0)
-            i-=1
-
-    finetune_dataset_path = os.path.join(output_folder,output_name)
-    with open(finetune_dataset_path, 'w') as file:
-        for di,label in tqdm(zip(selected_di,labels), desc='Creating dataset for finetuning'):
-            sentences = [' '.join(item) for item in di]
-            file.write('[CLS] ' + ' [SEP] '.join(sentences) + f' <end> {label}\n\n')
-            
-def create_nsp_dataset(file_path, output_folder, output_name='nsp_dataset.txt', split=False):
-    bag = []
-    with open(file_path, 'r', encoding='utf-8') as file:
-        for line in file:
-            if line.startswith('[CLS]'):
-                sentences = [s for s in line.lstrip('[CLS]').split('[SEP]') if s.strip() != '']
-                bag.extend(sentences)
-    bag_size = len(bag)
-    sentences_a = []
-    sentences_b = []
-    labels = []
-    
-    with open(file_path, 'r', encoding='utf-8') as file:
-        for line in file:
-            if line.startswith('[CLS]'):
-                sentences = [s for s in line.lstrip('[CLS]').split('[SEP]') if s.strip() != '']
-                num_sentences = len(sentences)
-                start = 0
-                while start < (num_sentences - 2):
-                    sentences_a.append(sentences[start])
-                    if random.random() > .5:
-                        sentences_b.append(sentences[start+1])
-                        labels.append(0)
-                    else:
-                        sentences_b.append(bag[random.randint(0, bag_size-1)])
-                        labels.append(1)
-                    start += 1
-    
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
-    
-    pairs = []
-    for sentence_a, sentence_b, label in tqdm(zip(sentences_a, sentences_b, labels), desc='Creating nsp dataset'):
-        pairs.append(f'[CLS] {sentence_a} [SEP] {sentence_b} <end> {label}')
-    
-    if split:
-        train,test = train_test_split(pairs, test_size=.2, random_state=42, shuffle=True)
-        if not os.path.exists(output_folder):
-            os.makedirs(output_folder)
-            
-        output_files = [os.path.join(output_folder, 'train.txt'),os.path.join(output_folder,'test.txt')]
-        for output_file,split in zip(output_files,[train,test]):
-            with open(output_file, 'w') as file:
-                file.write('\n'.join(split))
-    else:
-        with open(os.path.join(output_folder, output_name), 'w') as file:
-            file.write('\n'.join(pairs))
-    
-            
-def create_class_nsp_dataset(file_path, output_folder, output_name = 'class_nsp_dataset.txt', split=False):        
-    df, types_dict = read_csv_dataset(file_path)
+def create_nsp_format_3(file_path):        
+    df, types_dict = read_csv_format_3(file_path)
         
     bag = []
     current_patient = None
@@ -247,22 +236,11 @@ def create_class_nsp_dataset(file_path, output_folder, output_name = 'class_nsp_
             current_patient = patient
             sentences = []
         sentences.append(' '.join((types_dict[rows['Type_event'].iloc[0]]+rows['Code_event'])[::-1]))
-    
-    if split:
-        train,test = train_test_split(pairs, test_size=.2, random_state=42, shuffle=True)
-        if not os.path.exists(output_folder):
-            os.makedirs(output_folder)
+        
+    return pairs
             
-        output_files = [os.path.join(output_folder, 'train.txt'),os.path.join(output_folder,'test.txt')]
-        for output_file,split in zip(output_files,[train,test]):
-            with open(output_file, 'w') as file:
-                file.write('\n'.join(split))
-    else:
-        with open(os.path.join(output_folder, output_name), 'w') as file:
-            file.write('\n'.join(pairs))
-            
-def create_finetuning_dataset(file_path, output_folder, output_name = 'finetuning_dataset.txt', split=False):
-    df, types_dict = read_csv_dataset(file_path)
+def create_finetune_format_3(file_path):
+    df, types_dict = read_csv_format_3(file_path)
     
     docs = []
     current_patient = None
@@ -306,23 +284,12 @@ def create_finetuning_dataset(file_path, output_folder, output_name = 'finetunin
     else:
         doc += '0'
     docs.append(doc)
-            
-    if split:
-        train,test = train_test_split(docs, test_size=.2, random_state=42, shuffle=True)
-        if not os.path.exists(output_folder):
-            os.makedirs(output_folder)
-        
-        output_files = [os.path.join(output_folder, 'train.txt'),os.path.join(output_folder,'test.txt')]
-        for output_file,split in zip(output_files,[train,test]):
-            with open(output_file, 'w') as file:
-                file.write('\n'.join(split))
-    else:
-        with open(os.path.join(output_folder, output_name), 'w') as file:
-            file.write('\n'.join(docs))       
+    
+    return docs  
         
             
-def create_mlm_only_dataset(file_path, output_folder, output_name = 'class_text_dataset.txt', split=False):        
-    df, types_dict = read_csv_dataset(file_path)
+def create_mlm_only_format_3(file_path):        
+    df, types_dict = read_csv_format_3(file_path)
     
     docs = []
     current_patient = None
@@ -337,71 +304,66 @@ def create_mlm_only_dataset(file_path, output_folder, output_name = 'class_text_
         sentences.append(' '.join(types_dict[rows['Type_event'].iloc[0]]+rows['Code_event']) + " [SEP]")
     doc = '[CLS] '+' '.join(sentences[::-1])
     docs.append(doc) # add the last line
-
-    if split:
-        train,test = train_test_split(docs, test_size=.2, random_state=42, shuffle=True)
-        if not os.path.exists(output_folder):
-            os.makedirs(output_folder)
-        output_files = [os.path.join(output_folder, 'train.txt'),os.path.join(output_folder,'test.txt')]
-        print('Creating train and text output files')
-        for output_file,split in zip(output_files,[train,test]):
-            with open(output_file, 'w') as file:
-                file.write('\n'.join(split))
-    else:
-        with open(os.path.join(output_folder, output_name), 'w') as file:
-            file.write('\n'.join(docs))
-
-def create_text_from_data(dataframe_or_file_path, output_folder, output_name = 'text_dataset.txt', streamlit=False, split=False, nsp=False):
-    #output_path = os.path.join(dataframe_or_folder, text_generated_name)
-    if isinstance(dataframe_or_file_path, pd.DataFrame): # it means that there is directly the df file
-        grouped_df = dataframe_or_file_path.groupby('patientID')
-        
-    elif os.path.exists(dataframe_or_file_path):
-        df = pd.read_csv(dataframe_or_file_path, index_col=0)
-        grouped_df = df.groupby('patientID')
     
-    progress_text = 'Producing text file from csv dataset'
-    if streamlit:
-        loop = stqdm(grouped_df, desc=progress_text)
-    else:
-        loop = tqdm(grouped_df, desc=progress_text)
+    return docs
 
-    results = []
-    for i, (_, patient) in enumerate(loop):
-        result = '[CLS] '
-        #result = str(patientID) + '\n'
-        for _, row in patient.iterrows():
-            result = result + f"{row['main_ICD9']}"
-            if not pd.isna(row['ICD9_1']):
-                result = result + f' {row["ICD9_1"]}'
-            if not pd.isna(row['ICD9_2']):
-                result = result + f' {row["ICD9_2"]}'
-            if not pd.isna(row['ICD9_3']):
-                result = result + f' {row["ICD9_3"]}'
-            if not pd.isna(row['ICD9_4']):
-                result = result + f' {row["ICD9_4"]}'
-            if not pd.isna(row['ICD9_5']):
-                result = result + f' {row["ICD9_5"]}'
-            result = result + ' [SEP] '
-        results.append(result+'\n')
+#----------------------------------------------------------------------------------------------------------------------------------------------------------------------#
+# 
+#   Format_4: .txt dataset made of sentences - documents
+# 
+#
+            
+def create_nsp_format_4(file_path):
+    bag = []
+    with open(file_path, 'r', encoding='utf-8') as file:
+        for line in file:
+            if line.startswith('[CLS]'):
+                sentences = [s for s in line.lstrip('[CLS]').split('[SEP]') if s.strip() != '']
+                bag.extend(sentences)
+    bag_size = len(bag)
+    sentences_a = []
+    sentences_b = []
+    labels = []
+    
+    with open(file_path, 'r', encoding='utf-8') as file:
+        for line in file:
+            if line.startswith('[CLS]'):
+                sentences = [s for s in line.lstrip('[CLS]').split('[SEP]') if s.strip() != '']
+                num_sentences = len(sentences)
+                start = 0
+                while start < (num_sentences - 2):
+                    sentences_a.append(sentences[start])
+                    if random.random() > .5:
+                        sentences_b.append(sentences[start+1])
+                        labels.append(0)
+                    else:
+                        sentences_b.append(bag[random.randint(0, bag_size-1)])
+                        labels.append(1)
+                    start += 1
+    
+    pairs = []
+    for sentence_a, sentence_b, label in tqdm(zip(sentences_a, sentences_b, labels), desc='Creating nsp dataset'):
+        pairs.append(f'[CLS] {sentence_a} [SEP] {sentence_b} <end> {label}')
         
-        # if streamlit:
-        #     my_bar.progress(i/(len(grouped_df)-1), text=progress_text)
+    return pairs
 
-    # results = '\n'.join(results)
-        
-    if split:
-        train,test = train_test_split(results, test_size=.2, random_state=42, shuffle=True)
-        if not os.path.exists(output_folder):
-            os.makedirs(output_folder)
-        output_files = [os.path.join(output_folder, 'train.txt'),os.path.join(output_folder,'test.txt')]
-        print('Creating train and text output files')
-        for output_file,split in zip(output_files,[train,test]):
-            with open(output_file, 'w') as file:
-                file.write('\n'.join(split))
-    else:
-        with open(os.path.join(output_folder, output_name), 'w') as file:
-            file.write('\n'.join(results))
+#----------------------------------------------------------------------------------------------------------------------------------------------------------------------#
+#
+#   MAIN FUNCTION
+#
+#
+            
+def detect_format(file_path):
+    exp = os.path.splitext(file_path)[-1].lower()
+    if exp == '.txt': return 'format_4'
+    
+    with open(file_path, 'r') as file:
+        reader = csv.reader(file)
+        detected_columns = next(reader)
+
+    for format,columns in FORMAT_COLUMNS.items():
+        if detected_columns == columns:
+            return format
         
 if __name__ == '__main__':
     
@@ -413,46 +375,62 @@ if __name__ == '__main__':
                         help='Name for the output text file')
     parser.add_argument('--output_folder', type=str,
                         help='Folder where to save the output text file')
-    parser.add_argument('--create_pretrain_text_file', action='store_true')
-    parser.add_argument('--create_finetuning_text_data', action='store_true')
-    parser.add_argument('--create_infer_text_data', action='store_true')
-    parser.add_argument('--create_nsp_text_file', action='store_true')
-    parser.add_argument('--create_mlm_only_dataset', action='store_true')
-    parser.add_argument('--create_nsp_class_text_data', action='store_true')
+    parser.add_argument('--create_pretrain', action='store_true')
+    parser.add_argument('--create_finetuning', action='store_true')
+    parser.add_argument('--create_infer', action='store_true')
+    parser.add_argument('--random_state', default=42, type=int)
+    parser.add_argument('--test_size', default=.2, type=float)
+    # parser.add_argument('--create_nsp_text_file', action='store_true')
+    # parser.add_argument('--create_mlm_only_dataset', action='store_true')
+    # parser.add_argument('--create_nsp_class_text_data', action='store_true')
+    parser.add_argument('--mlm_only', action='store_true')
     parser.add_argument('--split', action='store_true')
     
     args = parser.parse_args()
-
-    if args.create_pretrain_text_file:
-        create_text_from_data(args.file_path, 
-                              output_folder=args.output_folder, 
-                              output_name=args.output_name,
-                              split=args.split)
-        
-    if args.create_finetuning_text_data:
-        create_finetuning_dataset(output_folder=args.output_folder,
-                                       file_path=args.file_path,
-                                       output_name=args.output_name,
-                                       split=args.split)
-    if args.create_infer_text_data:
-        create_infer_from_data(args.file_path, 
-                              output_folder=args.output_folder, 
-                              output_name=args.output_name)
-        
-    if args.create_nsp_text_file:
-        create_nsp_dataset(args.file_path,
-                           output_folder=args.output_folder,
-                           output_name=args.output_name,
-                           split=args.split)
     
-    if args.create_mlm_only_dataset:
-        create_mlm_only_dataset(args.file_path,
-                           output_folder=args.output_folder,
-                           output_name=args.output_name,
-                            split=args.split)
-
-    if args.create_nsp_class_text_data:
-        create_class_nsp_dataset(args.file_path,
-                                 output_folder=args.output_folder,
-                                 output_name=args.output_name,
-                                 split=args.split)
+    format = detect_format(args.file_path)
+    
+    docs = None
+    if format == 'format_2':    
+        if args.create_pretrain:
+            if args.mlm_only:
+                docs = create_mlm_only_format_2(args.file_path)
+            else:
+                docs = format_2_create_nsp(args.file_path)
+        if args.create_infer:
+            docs = format_2_create_infer(args.file_path)
+        if args.create_finetuning:
+            docs = format_2_create_finetune(args.file_path)
+            
+    elif format == 'format_3':        
+        if args.create_finetuning:
+            docs = create_finetune_format_3(args.file_path)
+        if args.create_pretrain:
+            if args.mlm_only:
+                docs = create_mlm_only_format_3(args.file_path)
+            else:
+                docs = create_nsp_format_3(args.file_path)
+        if args.create_infer:
+            pass
+            
+    elif format == 'format_4':    
+        if args.create_pretrain:
+            docs = create_nsp_format_4(args.file_path)
+            
+    if docs is None:
+        logging.info('Not recognized format')
+        
+    elif args.split and not args.create_infer_text_data:
+        train,test = train_test_split(docs, test_size=args.test_size, random_state=args.random_state, shuffle=True)
+        if not os.path.exists(args.output_folder):
+            os.makedirs(args.output_folder)
+        output_files = [os.path.join(args.output_folder, 'train.txt'),os.path.join(args.output_folder,'test.txt')]
+        print('Creating train and text output files')
+        for output_file,split in zip(output_files,[train,test]):
+            with open(output_file, 'w') as file:
+                file.write('\n'.join(split))
+    else:
+        if args.create_infer_text_data:
+            logging.info(f'Creation of inference dataset. Dataset will not be split into train and test')
+        with open(os.path.join(args.output_folder, args.output_name), 'w') as file:
+            file.write('\n'.join(docs))
