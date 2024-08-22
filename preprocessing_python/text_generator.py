@@ -112,18 +112,18 @@ def format_2_create_infer(file_path):
         diagnoses = diagnoses['diagnoses']
         result = f'{str(patientID)}, [CLS] '
         for diagnosis in diagnoses:
-            result += ' '.join(diagnoses) + ' [SEP]'
+            result += ' '.join(diagnosis) + ' [SEP]'
         docs.append(result)
         
     return docs
 
-def format_2_create_finetune(file_path='data\PHeP_simulated_data.csv'):
+def format_2_create_finetune(file_path='data/PHeP_simulated_data.csv'):
     """Function that generate the finetuning dataset, it delete the last hospitalization event and label the remaining events with 1 if the 
     deleted event is earlier than 90 days, 0 otherwise
 
     Args:
         output_folder (_type_): Folder in which save the text_dataset
-        file_path (str, optional): _description_. Defaults to 'data\PHeP_simulated_data.csv'.
+        file_path (str, optional): _description_. Defaults to 'data/PHeP_simulated_data.csv'.
         output_name (str, optional): _description_. Defaults to 'finetune_dataset.txt'.
     """
     patient_dict = format_2_read_csv(file_path, read_hosp=True)
@@ -420,7 +420,7 @@ if __name__ == '__main__':
     if docs is None:
         logging.info('Not recognized format')
         
-    elif args.split and not args.create_infer_text_data:
+    elif args.split and not args.create_infer:
         train,test = train_test_split(docs, test_size=args.test_size, random_state=args.random_state, shuffle=True)
         if not os.path.exists(args.output_folder):
             os.makedirs(args.output_folder)
@@ -430,7 +430,9 @@ if __name__ == '__main__':
             with open(output_file, 'w') as file:
                 file.write('\n'.join(split))
     else:
-        if args.create_infer_text_data:
+        if args.create_infer:
             logging.info(f'Creation of inference dataset. Dataset will not be split into train and test')
+        if not os.path.exists(args.output_folder):
+            os.makedirs(args.output_folder)
         with open(os.path.join(args.output_folder, args.output_name), 'w') as file:
             file.write('\n'.join(docs))
