@@ -211,8 +211,10 @@ def load_model(model_input, use_pretrained=False, do_train=False, do_eval=False,
         tokenizer_folder = os.path.join(model_input, 'tokenizer')
         if os.path.exists(tokenizer_folder):
             tokenizer = BertTokenizerFast.from_pretrained(tokenizer_folder)
+            logging.info(f'Loaded custom tokenizer from {tokenizer_folder}')
         else:
             tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
+            logging.info(f'Loaded pretrained tokenizer from HuggingFace (bert-base-uncased)')
             
         if do_train or do_eval:
             try:
@@ -289,14 +291,22 @@ def main():
     
     if not args.predict:
         if os.path.isfile(args.input_file):
-            dataset = NewFinetuningDataset(tokenizer, 
-                                file_path=args.input_file, 
-                                max_length=args.max_seq_length)
-            train_dataset, test_dataset = torch.utils.data.random_split(dataset, [.8,.2])
-            if not args.do_train:
-                del train_dataset
-            if not args.do_eval:
-                del test_dataset
+            if args.do_train and not args.do_eval:
+                logging.info(f'Loading the entire dataset to perform training')
+                train_dataset = NewFinetuningDataset(tokenizer,
+                                               file_path=args.input_file,
+                                               max_length=args.max_seq_length)
+            elif not args.do_train and args.do_eval:
+                logging.info(f'Loading the entire dataset to perform evaluation')
+                test_dataset = NewFinetuningDataset(tokenizer,
+                                               file_path=args.input_file,
+                                               max_length=args.max_seq_length)
+            else:
+                logging.info(f'Splitting the dataset in 80% train and 20% test')
+                dataset = NewFinetuningDataset(tokenizer, 
+                                    file_path=args.input_file, 
+                                    max_length=args.max_seq_length)
+                train_dataset, test_dataset = torch.utils.data.random_split(dataset, [.8,.2])
         elif os.path.isdir(args.input_file):
             train_file = os.path.join(args.input_file, 'train.txt')
             test_file = os.path.join(args.input_file, 'test.txt')

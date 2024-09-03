@@ -25,7 +25,7 @@ def get_tokenizer_from_path(path):
   return BertTokenizerFast.from_pretrained(path)
 
 def get_tokenizer(args, output_path, path=None):
-  special_tokens = ['[CLS]','[SEP]','[MASK]']
+  special_tokens = ['[CLS]','[SEP]','[MASK]','[UNK]','[PAD]']
   
   if args.use_pretrained_bert:
     tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
