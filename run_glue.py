@@ -215,12 +215,19 @@ def load_model(model_input, use_pretrained=False, do_train=False, do_eval=False,
             tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
             
         if do_train or do_eval:
-            pretrained_folder = os.path.join(model_input, 'pre_trained_model')
-            logging.info(f'Loading pretrained model from {pretrained_folder}')
             try:
-                model = BertForSequenceClassification.from_pretrained(pretrained_folder)
-            except:
                 model = BertForSequenceClassification.from_pretrained(model_input)
+                logging.info(f'Loaded pretrained/finetuned model from selected folder {model_input}')
+            except:
+                try:
+                    finetuned_folder = os.path.join(model_input, 'finetuned_model')
+                    model = BertForSequenceClassification.from_pretrained(finetuned_folder)
+                    logging.info(f'Loading pretrained model from {finetuned_folder}')
+                except:
+                    logging.info(f'Trying loading model from pre_trained_model folder')
+                    pretrained_folder = os.path.join(model_input, 'pre_trained_model')
+                    model = BertForSequenceClassification.from_pretrained(pretrained_folder)
+                    logging.info(f'Loading pretrained model from {pretrained_folder}')
         elif predict:
             model = BertForSequenceClassification.from_pretrained(model_input)
         
