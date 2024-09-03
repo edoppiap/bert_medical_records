@@ -204,6 +204,30 @@ def load_training_args(args):
         
     return args
 
+def load_model(model_input, use_pretrained=False, do_train=False, do_eval=False, predict=False):
+    
+    if use_pretrained:
+        tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
+        model = BertForSequenceClassification.from_pretrained('bert-base-uncased')
+    else:
+        tokenizer_folder = os.path.join(model_input, 'tokenizer')
+        if os.path.exists(tokenizer_folder):
+            tokenizer = BertTokenizerFast.from_pretrained(tokenizer_folder)
+        else:
+            tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
+            
+        if do_train or do_eval:
+            pretrained_folder = os.path.join(model_input, 'pre_trained_model')
+            logging.info(f'Loading pretrained model from {pretrained_folder}')
+            try:
+                model = BertForSequenceClassification.from_pretrained(pretrained_folder)
+            except:
+                model = BertForSequenceClassification.from_pretrained(model_input)
+        elif predict:
+            model = BertForSequenceClassification.from_pretrained(model_input)
+        
+    return tokenizer, model
+
 def main():
     args = parse_arguments()
     
@@ -252,26 +276,11 @@ def main():
     
     model_path = os.path.join(output_path, 'finetuned_model')
     
-    if args.use_pretrained_bert:
-        tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
-        model = BertForSequenceClassification.from_pretrained('bert-base-uncased')
-        
-    else:    
-        tokenizer_folder = os.path.join(args.model_input, 'tokenizer')
-        if os.path.exists(tokenizer_folder):
-            tokenizer = BertTokenizerFast.from_pretrained(tokenizer_folder)
-        else:
-            tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
-        
-        if args.do_train:
-            model_folder = os.path.join(args.model_input, 'pre_trained_model')
-            logging.info(f'Loading pretrained model from {model_folder}')
-            try:
-                model = BertForSequenceClassification.from_pretrained(model_folder)
-            except:
-                model = BertForSequenceClassification.from_pretrained(args.model_input)
-        elif args.predict:
-            model = BertForSequenceClassification.from_pretrained(args.model_input)
+    tokenizer, model = load_model(args.model_input, 
+                                  use_pretrained=args.use_pretrained_bert,
+                                  do_train=args.do_train,
+                                  do_eval=args.do_eval,
+                                  predict=args.predict)    
     
     if not args.predict:
         if os.path.isfile(args.input_file):
