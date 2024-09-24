@@ -253,7 +253,7 @@ def main():
         if args.k_fold == 1:
             train_dataset, test_dataset = torch.utils.data.random_split(dataset, [.8,.2])
         else:
-            skf = KFold(n_splits=args.k_fold, shuffle=True, random_state=args.random_state)
+            skf = KFold(n_splits=args.k_fold, shuffle=True, random_state=42)
             train_dataset,test_dataset = [],[]
             for train_i, test_i in skf.split(dataset):
                 train_dataset.append([dataset[i] for i in train_i])
