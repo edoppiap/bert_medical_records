@@ -32,6 +32,9 @@ def parse_arguments():
                         help='This will initialize the bert model as already pre-trained')
     parser.add_argument('--predict', action='store_true', 
                         help='Whether to create prediction out of the input data (it need a finetuned model)')
+    parser.add_argument('--k_fold', type=int, default=1,
+                        help='The k-parameter for the k-fold cross-valiation on the dataset (it require a single dataset not an already splitted one).' \
+                            +'Default is 1 = no cross-validation is perfomed.')
     
     #-----------------------------------------------------------------#
     # BERT CONFIG ARGUMENTS

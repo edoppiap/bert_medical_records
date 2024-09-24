@@ -3,6 +3,7 @@ from transformers import BertTokenizerFast
 from transformers.data.metrics import acc_and_f1
 from transformers import get_scheduler
 # from sklearn.metrics import recall_score
+from sklearn.model_selection import KFold
 
 import os
 import sys
@@ -98,11 +99,17 @@ def train(args, train_dataset, model, output_path):
     return loss
 
 def compute_metrics(nsp_preds,nsp_truths, mlm_preds, mlm_truths):
+    result = {}
     if nsp_preds is not None:
-        logging.info(f'Nsp acc: {torch.sum(nsp_preds == nsp_truths).item() / len(nsp_truths)}')
+        nsp_acc = torch.sum(nsp_preds == nsp_truths).item() / len(nsp_truths)
+        logging.info(f'Nsp acc: {nsp_acc}')
+        result['nsp_acc'] = nsp_acc
     if mlm_preds is not None:
-        logging.info(f'Mlm acc: {torch.sum(mlm_preds == mlm_truths).item() / len(mlm_truths)}')
+        mlm_acc = torch.sum(mlm_preds == mlm_truths).item() / len(mlm_truths)
+        logging.info(f'Mlm acc: {mlm_acc}')
+        result['mlm_acc'] = nsp_acc
     # logging.info(f'recall_at_k: {recall_score(mlm_truths.numpy(), top_k_indeces.numpy(), average="samples")}')
+    return result
     
 
 def eval(args, test_dataset, model, mask_token_id):
@@ -243,7 +250,14 @@ def main():
                                     file_path=args.input_file,
                                     max_length=args.max_seq_length,
                                     mlm=args.mlm_percentage if bert_class == 'BertForMaskedLM' or bert_class == 'BertForPreTraining' else 0)
-        train_dataset, test_dataset = torch.utils.data.random_split(dataset, [.8,.2])
+        if args.k_fold == 1:
+            train_dataset, test_dataset = torch.utils.data.random_split(dataset, [.8,.2])
+        else:
+            skf = KFold(n_splits=args.k_fold, shuffle=True, random_state=args.random_state)
+            train_dataset,test_dataset = [],[]
+            for train_i, test_i in skf.split(dataset):
+                train_dataset.append([dataset[i] for i in train_i])
+                test_dataset.append([dataset[i] for i in test_i]) 
         if not args.do_train:
             del train_dataset
         if not args.do_eval:
@@ -264,29 +278,53 @@ def main():
                                     max_length=args.max_seq_length,
                                     mlm=args.mlm_percentage if bert_class == 'BertForMaskedLM' or bert_class == 'BertForPreTraining' else 0)
     
-    if args.do_train and args.do_eval: 
-        if args.pre_train_tasks == 'nsp' or args.pre_train_tasks == 'mlm_nsp':
-            logging.info(f'There are {len(train_dataset)} pairs of sequences in the train dataset and {len(test_dataset)} in the evaluation one.')
-        else:
-            logging.info(f'There are {len(train_dataset)} documents in the train datatset and {len(test_dataset)} in the evaluation one.')
-    elif args.do_train:
-        if args.pre_train_tasks == 'nsp' or args.pre_train_tasks == 'mlm_nsp':
-            logging.info(f'Only the train will be performed. There are {len(train_dataset)} pairs of sequences in the dataset')
-        else:
-            logging.info(f'Only the train will be performed. There are {len(train_dataset)} documents in the dataset')
-    elif args.do_eval:
-        if args.pre_train_tasks == 'nsp' or args.pre_train_tasks == 'mlm_nsp':
-            logging.info(f'Only the evaluation will be performed. There are {len(test_dataset)} pairs of sequences in the dataset')
-        else:
-            logging.info(f'Only the evaluation will be performed. There are {len(test_dataset)} documents in the dataset')
+    if args.k_fold == 1:
+        if args.do_train and args.do_eval: 
+            if args.pre_train_tasks == 'nsp' or args.pre_train_tasks == 'mlm_nsp':
+                logging.info(f'There are {len(train_dataset)} pairs of sequences in the train dataset and {len(test_dataset)} in the evaluation one.')
+            else:
+                logging.info(f'There are {len(train_dataset)} documents in the train datatset and {len(test_dataset)} in the evaluation one.')
+        elif args.do_train:
+            if args.pre_train_tasks == 'nsp' or args.pre_train_tasks == 'mlm_nsp':
+                logging.info(f'Only the train will be performed. There are {len(train_dataset)} pairs of sequences in the dataset')
+            else:
+                logging.info(f'Only the train will be performed. There are {len(train_dataset)} documents in the dataset')
+        elif args.do_eval:
+            if args.pre_train_tasks == 'nsp' or args.pre_train_tasks == 'mlm_nsp':
+                logging.info(f'Only the evaluation will be performed. There are {len(test_dataset)} pairs of sequences in the dataset')
+            else:
+                logging.info(f'Only the evaluation will be performed. There are {len(test_dataset)} documents in the dataset')
+    else:
+        logging.info(f'K-fold cross-validation training with k={args.k_fold}.')
+        logging.info(f'There are about {len(train_dataset[0])} documents/sequences in the train dataset and about {len(test_dataset[0])} in the evaluation one.\n'\
+            +'(They can vary a little between split)')
     
     if args.do_train:
         model_output_path = os.path.join(output_path, 'pre_trained_model')
-        loss = train(args,train_dataset,model,model_output_path)
+        if args.k_fold ==1:
+            loss = train(args,train_dataset,model,model_output_path)
+        else:
+            loss = 0
+            for X in train_dataset:
+                loss += train(args, X, model, model_output_path)
+            loss = loss / len(train_dataset)
         logging.info(f'Average loss = {loss}')
     
     if args.do_eval:
-        eval(args, test_dataset, model, mask_token_id=tokenizer.mask_token_id)
+        if args.k_fold == 1:
+            eval(args, test_dataset, model, mask_token_id=tokenizer.mask_token_id)
+        else:
+            accs = {}
+            for Y in test_dataset:
+                result = eval(args, Y, model, mask_token_id=tokenizer.mask_token_id)
+                if 'mlm_acc' in result:
+                    accs['mlm_acc'] += result['mlm_acc']
+                if 'nsp_acc' in result:
+                    accs['nsp_acc'] += result['nsp_acc']
+            if 'mlm_acc' in accs:
+                print(f'Average mlm_acc = {accs["mlm_acc"] / len(test_dataset)}')
+            if 'nsp_acc' in accs:
+                print(f'Average nsp_acc = {accs["nsp_acc"] / len(test_dataset)}')
     
 if __name__ == '__main__':
     main()
