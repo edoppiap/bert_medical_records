@@ -35,6 +35,8 @@ def parse_arguments():
     parser.add_argument('--k_fold', type=int, default=1,
                         help='The k-parameter for the k-fold cross-valiation on the dataset (it require a single dataset not an already splitted one).' \
                             +'Default is 1 = no cross-validation is perfomed.')
+    parser.add_argument('--save_finetuned_folder', type=str, default=None,
+                        help='Use this argument to specify in which folder save the finetuned model')
     
     #-----------------------------------------------------------------#
     # BERT CONFIG ARGUMENTS
