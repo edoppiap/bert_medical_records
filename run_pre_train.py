@@ -326,15 +326,16 @@ def main():
         else:
             accs = {}
             for i,Y in enumerate(test_dataset):
+                logging.info(f'Model n. {i}:')
                 result = eval(args, Y, models[i], mask_token_id=tokenizer.mask_token_id)
                 if 'mlm_acc' in result:
                     accs['mlm_acc'] = accs.setdefault('mlm_acc', 0) + result['mlm_acc']
                 if 'nsp_acc' in result:
                     accs['nsp_acc'] = accs.setdefault('nsp_acc', 0) + result['nsp_acc']
             if 'mlm_acc' in accs:
-                print(f'Average mlm_acc = {accs["mlm_acc"] / len(test_dataset)}')
+                logging.info(f'Average mlm_acc = {accs["mlm_acc"] / len(test_dataset)}')
             if 'nsp_acc' in accs:
-                print(f'Average nsp_acc = {accs["nsp_acc"] / len(test_dataset)}')
+                logging.info(f'Average nsp_acc = {accs["nsp_acc"] / len(test_dataset)}')
     
 if __name__ == '__main__':
     main()

@@ -202,13 +202,14 @@ def load_training_args(args):
         
     return args
 
-def load_model(model_input, use_pretrained=False, do_train=False, do_eval=False, predict=False):
+def load_model(model_input, tokenizer_folder=None, use_pretrained=False, do_train=False, do_eval=False, predict=False):
     
     if use_pretrained:
         tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
         model = BertForSequenceClassification.from_pretrained('bert-base-uncased')
     else:
-        tokenizer_folder = os.path.join(model_input, 'tokenizer')
+        if tokenizer_folder == None:
+            tokenizer_folder = os.path.join(model_input, 'tokenizer')
         if os.path.exists(tokenizer_folder):
             tokenizer = BertTokenizerFast.from_pretrained(tokenizer_folder)
             logging.info(f'Loaded custom tokenizer from {tokenizer_folder}')
@@ -281,9 +282,14 @@ def main():
         logging.info('Saving the model in the same folder of the pretrained one')
     logging.info(f"There are {torch.cuda.device_count()} GPUs and {multiprocessing.cpu_count()} CPUs.")
     
-    model_path = os.path.join(output_path, 'finetuned_model')
+    if args.save_finetuned_folder is not None or not os.path.exists(args.save_finetuned_folder):
+        model_path = os.path.join(args.save_finetuned_folder, 'finetuned_model')
+    else:
+        model_path = os.path.join(output_path, 'finetuned_model')
+            
     
-    tokenizer, model = load_model(args.model_input, 
+    tokenizer, model = load_model(args.model_input,
+                                  tokenizer_folder=args.pre_trained_tokenizer_path,
                                   use_pretrained=args.use_pretrained_bert,
                                   do_train=args.do_train,
                                   do_eval=args.do_eval,
