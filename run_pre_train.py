@@ -239,11 +239,20 @@ def main():
     tokenizer = get_tokenizer(path=tokenizer_path,
                                 args=args,
                                 output_path=output_path)
-     
-    model = get_bert_model(bert_class_name = bert_class,
-                           args=args,
-                           pad_token_id=tokenizer.convert_tokens_to_ids(tokenizer.pad_token),
-                           input_path=model_path)
+    if args.k_fold == 1:        
+        model = get_bert_model(bert_class_name = bert_class,
+                            args=args,
+                            pad_token_id=tokenizer.convert_tokens_to_ids(tokenizer.pad_token),
+                            input_path=model_path)
+    else:
+        models = []
+        for _ in range(args.k_fold):
+            models.append(
+                model = get_bert_model(bert_class_name = bert_class,
+                            args=args,
+                            pad_token_id=tokenizer.convert_tokens_to_ids(tokenizer.pad_token),
+                            input_path=model_path)
+            )
             
     if os.path.isfile(args.input_file):
         dataset = NewPreTrainingDataset(tokenizer,
@@ -300,13 +309,14 @@ def main():
             +'(They can vary a little between split)')
     
     if args.do_train:
-        model_output_path = os.path.join(output_path, 'pre_trained_model')
         if args.k_fold ==1:
+            model_output_path = os.path.join(output_path, 'pre_trained_model')
             loss = train(args,train_dataset,model,model_output_path)
         else:
             loss = 0
-            for X in train_dataset:
-                loss += train(args, X, model, model_output_path)
+            for i,X in enumerate(train_dataset):
+                model_output_path = os.path.join(output_path, f'model_{i}', 'pre_trained_model')
+                loss += train(args, X, models[i], model_output_path)
             loss = loss / len(train_dataset)
         logging.info(f'Average loss = {loss}')
     
@@ -315,8 +325,8 @@ def main():
             eval(args, test_dataset, model, mask_token_id=tokenizer.mask_token_id)
         else:
             accs = {}
-            for Y in test_dataset:
-                result = eval(args, Y, model, mask_token_id=tokenizer.mask_token_id)
+            for i,Y in enumerate(test_dataset):
+                result = eval(args, Y, models[i], mask_token_id=tokenizer.mask_token_id)
                 if 'mlm_acc' in result:
                     accs['mlm_acc'] += result['mlm_acc']
                 if 'nsp_acc' in result:
