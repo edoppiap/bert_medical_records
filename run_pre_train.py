@@ -314,11 +314,13 @@ def main():
             loss = train(args,train_dataset,model,model_output_path)
         else:
             loss = 0
+            start_time = datetime.now()
             for i,X in enumerate(train_dataset):
                 model_output_path = os.path.join(output_path, f'model_{i}', 'pre_trained_model')
                 loss += train(args, X, models[i], model_output_path)
             loss = loss / len(train_dataset)
         logging.info(f'Average loss = {loss}')
+        logging.info(f"{len(train_dataset)} models trained with cross-validation, in total in {str(datetime.now() - start_time)[:-7]}")
     
     if args.do_eval:
         if args.k_fold == 1:
