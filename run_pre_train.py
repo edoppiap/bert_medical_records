@@ -248,7 +248,7 @@ def main():
         models = []
         for _ in range(args.k_fold):
             models.append(
-                model = get_bert_model(bert_class_name = bert_class,
+                get_bert_model(bert_class_name = bert_class,
                             args=args,
                             pad_token_id=tokenizer.convert_tokens_to_ids(tokenizer.pad_token),
                             input_path=model_path)
