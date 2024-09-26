@@ -7,3 +7,4 @@ streamlit
 scikit-learn
 stqdm
 torch
+rpy2

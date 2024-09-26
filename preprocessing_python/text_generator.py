@@ -6,16 +6,20 @@ import pandas as pd
 import csv
 import os
 from tqdm import tqdm
-import streamlit as st
+# import streamlit as st
 from datetime import datetime, timedelta
 import argparse
 import random
 from sklearn.model_selection import train_test_split
 import logging
 
+import rpy2.robjects as ro
+import rpy2.robjects.packages as rpackages
+import rpy2.robjects.pandas2ri as pandas2ri
+
 FORMAT_COLUMNS = {
     'format_2' : ['patientID', 'sex', 'age', 'main_ICD9', 'ICD9_1', 'ICD9_2', 'ICD9_3', 'ICD9_4', 'ICD9_5', 'date_admission', 'date_discharge'],
-    'format_3' : ['Assistito_CodiceFiscale_Criptato', 'Data', 'Code_event', 'Type_event', 'sentence', 'Description_event']
+    'format_3' : ['Assistito_CodiceFiscale_Criptato', 'Data', 'Code_event', 'Type_event', 'sentence', 'Description_event', 'Label_event']
 }
 
 #----------------------------------------------------------------------------------------------------------------------------------------------------------------------#
@@ -167,25 +171,13 @@ def create_mlm_only_format_2(file_path):
 #
 
 def read_csv_format_3(file_path):
-    with open(file_path, 'r', newline='') as f:
-        reader = csv.reader(f, delimiter=',', quotechar='"', escapechar='\\')
-        columns = next(reader)
-        data = []
-        for row in reader:
-            # workaround because sometimes the cripted string is not read correctly
-            if len(row) > 6:
-                row[0] = ''.join([row[0],row[1]])
-                row[1:] = row[2:]
-            if row[1].startswith(','):
-                row[1] = row[1].lstrip(',').rstrip('"')
-                row[0] = row[0]+','
-            data.append(row)
-            
-    print(f'{columns = }\n{len(columns) = }')
-    print(f'{data[0] = }')
+    # this use R to read the csv file and load the correct string
+    pandas2ri.activate()
+    base = rpackages.importr('base')
+    data_table = rpackages.importr('data.table')
     
-
-    df = pd.DataFrame(data, columns=columns)
+    fread = ro.r('''function(file) {read.csv(file)}''')
+    df = fread(file_path)
     
     types_event = df['Type_event'].unique().tolist()
     strings_event = ['I-','D-','P-','M-', 'M-']
@@ -196,11 +188,11 @@ def read_csv_format_3(file_path):
     return df, types_dict
 
 def is_less_than_3_month(date_1, date_2):
-    date_1 = datetime.strptime(date_1, "%d/%m/%Y")
-    date_2 = datetime.strptime(date_2, "%d/%m/%Y")
+    d1 = datetime.strptime(date_1, "%d/%m/%Y")
+    d2 = datetime.strptime(date_2, "%d/%m/%Y")
     
-    # return if the two dates are less than 30 days apart
-    return abs(date_1 - date_2) < timedelta(days=90)
+    # return if the two dates are less than 90 days apart
+    return abs(d1 - d2) < timedelta(days=90)
 
             
 def create_nsp_format_3(file_path):        
@@ -243,47 +235,47 @@ def create_finetune_format_3(file_path):
     df, types_dict = read_csv_format_3(file_path)
     
     docs = []
-    current_patient = None
-    dates = None
-    doc = None
-    for (patient,_),rows in tqdm(df.groupby(['Assistito_CodiceFiscale_Criptato','sentence']),desc='Creating list of docs'):
-        # print(f"{patient = }, {date = }")
-        sentence_list = (types_dict[rows['Type_event'].iloc[0]]+rows['Code_event'])
-        date = rows['Data'].iloc[0]
-        if current_patient is None:
-            sentences = [' '.join(sentence_list)+ ' [SEP]']
-            dates = [date]
-            current_patient = patient
-        elif patient != current_patient:
-            # conclude the previous cicle
-            try:
-                # this will reverse the list of sentences and eliminate the last item
-                doc = '[CLS] ' + ' '.join(sentences[::-1][:-1]) + ' <end> '
-                # the date are not been reversed, so they can be interpreted in the same order of the csv file
-                if len(dates) > 2 and is_less_than_3_month(dates[0],dates[1]):
-                    doc += '1'
-                else:
-                    doc += '0'
-                    
-                # print(f'{current_patient = }\n{dates = }\n{doc =}\n\n')
-                docs.append(doc)
-            except:
-                print(f"Exception:\n{current_patient = }\n{doc = }\n{dates = }")
-            
-            # prepare a new cicle
-            current_patient = patient
-            sentences = [' '.join(sentence_list)+ ' [SEP]']
-            dates = [date]
-        else: # this is a new line of the same patient
-            sentences.append(' '.join(sentence_list)+ ' [SEP]')
+    for _,patient_df in tqdm(df.groupby('Assistito_CodiceFiscale_Criptato'), desc='Creating docs'):
+        sentences = []
+        dates = []
+        recovery_mask = []
+        
+        # creating sentences and date 
+        for _,row in patient_df.groupby('sentence'):
+            sentence = [f'{types_dict[row["Type_event"].iloc[0]]}{event.replace(" ","-")}' for event in row["Code_event"]]
+            date = row['Data'].iloc[0] # the date is the same for every row, so it can be used the first
+            sentences.append(' '.join(sentence)+ ' [SEP]')
             dates.append(date)
-    # process the last patient
-    doc = '[CLS] ' + ' '.join(sentences[::-1][:-1]) + '<end> '
-    if len(dates) > 2 and is_less_than_3_month(dates[0],dates[1]):
-        doc += '1'
-    else:
-        doc += '0'
-    docs.append(doc)
+            
+            recovery_mask.append('Dimissioni - RO' in row['Label_event'].unique())
+            
+        # cronologically order the sentences and dates
+        sentences = sentences[::-1]
+        dates = dates[::-1]
+        recovery_mask = recovery_mask[::-1]
+        
+        # creating docs for training deleting from last
+        i = len(sentences) -2 # we do not start from the last, since it has to be used for the label
+        precedent_date = dates[-1]
+        while i > 0:
+            if recovery_mask[i]:
+                doc = '[CLS] '+ ' '.join(sentences[:i])+ ' <end> '
+                # check if it's necessary to add a negative label when only a single sentence remain
+                # if i == 1: 
+                #     doc += '0'
+                # else:
+                
+                if len(dates) > 2 and is_less_than_3_month(dates[i],precedent_date):
+                    doc += '1'
+                else: # when we have a single date we surely do not have another hospitalisation
+                    doc += '0' 
+                precedent_date = dates[i]
+                docs.append(doc)
+            i -= 1
+        
+        # creating docs for training deleting from first
+        label = int(len(dates) > 2 and is_less_than_3_month(dates[-2],dates[-1]))
+        docs.extend(['[CLS] '+ ' '.join(sentences[i:])+ f' <end> {label}' for i in range(len(sentences) -2)])
     
     return docs  
         
@@ -384,6 +376,7 @@ if __name__ == '__main__':
     # parser.add_argument('--create_mlm_only_dataset', action='store_true')
     # parser.add_argument('--create_nsp_class_text_data', action='store_true')
     parser.add_argument('--mlm_only', action='store_true')
+    parser.add_argument('--del_beginning', action='store_true')
     parser.add_argument('--split', action='store_true')
     
     args = parser.parse_args()

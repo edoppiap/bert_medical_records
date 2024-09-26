@@ -179,7 +179,7 @@ def load_training_args(args):
     elif os.path.exists(os.path.join(finetune_model_folder, 'training_args.bin')):
         loaded_args = torch.load(os.path.join(finetune_model_folder, 'training_args.bin'))
         logging.info('Loaded training arguments from finetuned_model')
-    elif os.path.isdir(os.path.join(pretrain_model_folder, 'training_args.bin')):
+    elif os.path.exists(os.path.join(pretrain_model_folder, 'training_args.bin')):
         loaded_args = torch.load(os.path.join(pretrain_model_folder, 'training_args.bin'))
         logging.info('Loaded training arguments from pretrained_model')
     else:
