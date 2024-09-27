@@ -194,16 +194,28 @@ def is_less_than_3_month(date_1, date_2):
     # return if the two dates are less than 90 days apart
     return abs(d1 - d2) < timedelta(days=90)
 
+def read_sentence(df, types_dict, use_time=False):
+    if use_time:
+        sentence = [
+            f'{types_dict[df["Type_event"].iloc[0]]}{date.split("/")[1]}-{event.replace(" ","-")}'
+                    for event,date in zip(df["Code_event"],df["Data"])
+        ]
+    else:
+        sentence = [
+            f'{types_dict[df["Type_event"].iloc[0]]}{event.replace(" ","-")}' 
+            for event in df["Code_event"]
+        ]
+    return sentence
             
-def create_nsp_format_3(file_path):        
+def create_nsp_format_3(file_path, use_time=False):   
     df, types_dict = read_csv_format_3(file_path)
         
     bag = []
     for _,patient_df in tqdm(df.groupby('Assistito_CodiceFiscale_Criptato'), desc='Creating bags of sentences'):
         sentences = []
-        for _,row in patient_df.groupby('sentence'):
-            sentence = ' '.join([f'{types_dict[row["Type_event"].iloc[0]]}{event.replace(" ","-")}' for event in row["Code_event"]])
-            sentences.append(sentence)
+        for _,sentence_df in patient_df.groupby('sentence'):
+            sentence = read_sentence(sentence_df, types_dict, use_time)
+            sentences.append(' '.join(sentence))
         # make it cronologically ordered
         sentences = sentences[::-1]
         bag.extend(sentences)    
@@ -212,9 +224,9 @@ def create_nsp_format_3(file_path):
     pairs = []    
     for _,patient_df in  tqdm(df.groupby('Assistito_CodiceFiscale_Criptato'), desc='Creating pairs of sentences'):
         sentences = []
-        for _,row in patient_df.groupby('sentence'):
-            sentence = ' '.join([f'{types_dict[row["Type_event"].iloc[0]]}{event.replace(" ","-")}' for event in row["Code_event"]])
-            sentences.append(sentence)
+        for _,sentence_df in patient_df.groupby('sentence'):
+            sentence = read_sentence(sentence_df, types_dict, use_time)
+            sentences.append(' '.join(sentence))
         # make it cronologically ordered
         sentences = sentences[::-1]
         
@@ -233,7 +245,7 @@ def create_nsp_format_3(file_path):
         
     return pairs
             
-def create_finetune_format_3(file_path):
+def create_finetune_format_3(file_path, use_time=False):
     df, types_dict = read_csv_format_3(file_path)
     
     docs = []
@@ -243,13 +255,13 @@ def create_finetune_format_3(file_path):
         recovery_mask = []
         
         # creating sentences and date 
-        for _,row in patient_df.groupby('sentence'):
-            sentence = [f'{types_dict[row["Type_event"].iloc[0]]}{event.replace(" ","-")}' for event in row["Code_event"]]
-            date = row['Data'].iloc[0] # the date is the same for every row, so it can be used the first
+        for _,sentence_df in patient_df.groupby('sentence'):
+            sentence = read_sentence(sentence_df, types_dict, use_time)
+            date = sentence_df['Data'].iloc[0] # the date is the same for every row, so it can be used the first
             sentences.append(' '.join(sentence)+ ' [SEP]')
             dates.append(date)
             
-            recovery_mask.append('Dimissioni - RO' in row['Label_event'].unique())
+            recovery_mask.append('Dimissioni - RO' in sentence_df['Label_event'].unique())
             
         # cronologically order the sentences and dates
         sentences = sentences[::-1]
@@ -282,22 +294,17 @@ def create_finetune_format_3(file_path):
     return docs  
         
             
-def create_mlm_only_format_3(file_path):        
+def create_mlm_only_format_3(file_path, use_time=False):        
     df, types_dict = read_csv_format_3(file_path)
     
-    docs = []
-    current_patient = None
-    doc=None
-    for (patient,_),rows in tqdm(df.groupby(['Assistito_CodiceFiscale_Criptato','sentence']), desc='Creating output lists'):
-        if current_patient is None or patient != current_patient:
-            if current_patient is not None:
-                doc = '[CLS] '+' '.join(sentences[::-1])
-                docs.append(doc) #add the previous line
-            sentences = []
-            current_patient = patient
-        sentences.append(' '.join(types_dict[rows['Type_event'].iloc[0]]+rows['Code_event']) + " [SEP]")
-    doc = '[CLS] '+' '.join(sentences[::-1])
-    docs.append(doc) # add the last line
+    docs = []    
+    for _,patient_df in tqdm(df.groupby('Assistito_CodiceFiscale_Criptato'), desc='Creating output lists'):
+        sentences = []
+        
+        for _,sentence_df in patient_df.groupby('sentence'):
+            sentence = read_sentence(sentence_df, types_dict, use_time)
+            sentences.append(' '.join(sentence)+ " [SEP]")
+        docs.append('[CLS] '+' '.join(sentences[::-1]))
     
     return docs
 
@@ -380,6 +387,8 @@ if __name__ == '__main__':
     parser.add_argument('--mlm_only', action='store_true')
     parser.add_argument('--del_beginning', action='store_true')
     parser.add_argument('--split', action='store_true')
+    parser.add_argument('--use_time', action='store_true', 
+                        help='This command embed temporal information in the text dataset. The month of the event will be included with the ICD-9 code.')
     
     args = parser.parse_args()
     
@@ -399,12 +408,12 @@ if __name__ == '__main__':
             
     elif format == 'format_3':        
         if args.create_finetuning:
-            docs = create_finetune_format_3(args.file_path)
+            docs = create_finetune_format_3(args.file_path, args.use_time)
         if args.create_pretrain:
             if args.mlm_only:
-                docs = create_mlm_only_format_3(args.file_path)
+                docs = create_mlm_only_format_3(args.file_path, args.use_time)
             else:
-                docs = create_nsp_format_3(args.file_path)
+                docs = create_nsp_format_3(args.file_path, args.use_time)
         if args.create_infer:
             pass
             
