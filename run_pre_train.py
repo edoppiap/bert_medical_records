@@ -11,7 +11,7 @@ from datetime import datetime
 from tqdm import tqdm
 import numpy as np
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 import logging
 import multiprocessing
 
@@ -264,9 +264,10 @@ def main():
         else:
             skf = KFold(n_splits=args.k_fold, shuffle=True, random_state=42)
             train_dataset,test_dataset = [],[]
-            for train_i, test_i in skf.split(dataset):
-                train_dataset.append([dataset[i] for i in train_i])
-                test_dataset.append([dataset[i] for i in test_i]) 
+            for fold, (train_i, test_i) in enumerate(skf.split(dataset)):
+                logging.info(f'Creating split dataset {fold+1}')
+                train_dataset.append(Subset(dataset, train_i))
+                test_dataset.append(Subset(dataset, test_i)) 
         if not args.do_train:
             del train_dataset
         if not args.do_eval:
