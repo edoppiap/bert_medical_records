@@ -107,7 +107,7 @@ def compute_metrics(nsp_preds,nsp_truths, mlm_preds, mlm_truths):
     if mlm_preds is not None:
         mlm_acc = torch.sum(mlm_preds == mlm_truths).item() / len(mlm_truths)
         logging.info(f'Mlm acc: {mlm_acc}')
-        result['mlm_acc'] = nsp_acc
+        result['mlm_acc'] = mlm_acc
     # logging.info(f'recall_at_k: {recall_score(mlm_truths.numpy(), top_k_indeces.numpy(), average="samples")}')
     return result
     

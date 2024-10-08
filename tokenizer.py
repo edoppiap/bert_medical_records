@@ -2,6 +2,10 @@ import os
 import json
 import logging
 
+import argparse
+from datetime import datetime
+from tqdm import tqdm
+
 from tokenizers import Tokenizer
 from tokenizers import BertWordPieceTokenizer
 from tokenizers.models import BPE, WordPiece
@@ -99,3 +103,57 @@ def train_tokenizer(tokenizer_name, special_tokens, files, vocab_size, max_lengt
   tokenizer = get_tokenizer_from_string(tokenizer_name, tokenizer_path, vocab_size)
   
   return tokenizer
+
+if __name__ == '__main__':
+  
+  parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+  
+  parser.add_argument('--input_file', type=str, 
+                      help='File/folder in which are located the input csv files to test the tokenizer')
+  parser.add_argument('--output_dir', type=str,
+                        help='Folder where to save the output text file')
+  parser.add_argument('--max_seq_length', type=int, default=512, choices=[128, 512],
+                        help='The maximum total input sequence length after WordPiece tokenization. '+\
+                            'Set this parameter with the same value of the used during training to know how many sequences will be truncated')
+  parser.add_argument('--use_pretrained_bert', action='store_true',
+                        help='This will initialize the bert model as already pre-trained')
+  parser.add_argument('--vocab_size', type=int, default=30_522, help=' ')
+  parser.add_argument('--tokenizer_name', type=str, default='BertTokenizerFast',
+                        choices=['BertTokenizerFast'],
+                        help='Tokenizer used during pre-train')
+  
+  args = parser.parse_args()
+  
+  if args.output_dir:
+      output_path = args.output_dir
+      if not os.path.exists(output_path):
+          os.makedirs(output_path)
+  else:
+      current_directory = os.path.dirname(os.path.abspath(__file__))
+      current_time = datetime.now().strftime("%d-%m-%Y_%H-%M")
+      output_path = os.path.join(current_directory, 'output',current_time)
+      if not os.path.exists(output_path):
+          os.makedirs(output_path)
+  
+  tokenizer = get_tokenizer(args=args,
+                            output_path=output_path)
+  
+  n_lines = 0
+  n_truncated_lines = 0
+  with open(args.input_file, 'r') as f:
+    for line in tqdm(f, desc='Reading input file'):
+      n_lines += 1
+      if '<end>' in line:
+        pair = line.split('<end>')[0]
+        if len(pair.split('SEP')) == 2:
+          sentence_a, sentence_b = pair.split('[SEP]')
+          inputs = tokenizer(sentence_a,sentence_b, return_tensors='pt')
+        else:
+          inputs = tokenizer(pair, return_tensors='pt')
+        if len(inputs['input_ids'][0]) > args.max_seq_length:
+          n_truncated_lines += 1
+      else:
+        inputs = tokenizer(line, return_tensors='pt')
+        if len(inputs['input_ids'][0]) > args.max_seq_length:
+          n_truncated_lines += 1
+  print(f'Tokenizer will truncate {n_truncated_lines}/{n_lines} sequences ({n_truncated_lines/n_lines*100:.2f}%) with max_seq_length = {args.max_seq_length} on this dataset')
