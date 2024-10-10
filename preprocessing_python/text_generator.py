@@ -4,13 +4,18 @@ processes the data, and writes the processed data into a text file.
 '''
 import pandas as pd
 import csv
-import os
+import os, sys
 from tqdm import tqdm
 # import streamlit as st
 from datetime import datetime, timedelta
 import argparse
 import random
 from sklearn.model_selection import train_test_split
+
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(parent_dir)
+
+from utils import setup_logging
 import logging
 
 import rpy2.robjects as ro
@@ -79,7 +84,9 @@ def format_2_create_nsp(file_path):
     bag_size = len(bag)
 
     pairs = []
+    n_patients = 0
     for _,value_dict in tqdm(patient_dict.items(), desc='Creating pairs'):
+        n_patients += 1
         sentences = [' '.join(item) for item in value_dict['diagnoses']]
         num_sentences = len(sentences)
         start = 0
@@ -93,6 +100,9 @@ def format_2_create_nsp(file_path):
                 pair += '0' # they are not consecutive
             start += 1
             pairs.append(pair)
+            
+    logging.info(f'Number of patients = {n_patients}')
+    logging.info(f'Created {len(pairs)} pairs (average {len(pairs)/n_patients:.2f} pairs/patient)')
     return pairs
 
 def format_2_create_infer(file_path):
@@ -178,10 +188,10 @@ def read_csv_format_3(file_path):
     
     fread = ro.r('''function(file) {read.csv(file)}''')
     df = fread(file_path)
-    df = ro.conversion.get_conversion().rpy2py(df)
+    # df = ro.conversion.get_conversion().rpy2py(df)
     
     types_event = df['Type_event'].unique().tolist()
-    strings_event = ['I-','D-','P-','M-', 'M-']
+    strings_event = ['I','D','P','M', 'M'] # established way of concatenate classes
     types_dict = {}
     for type,string in zip(types_event, strings_event):
         types_dict[type] = string
@@ -195,38 +205,53 @@ def is_less_than_3_month(date_1, date_2):
     # return if the two dates are less than 90 days apart
     return abs(d1 - d2) < timedelta(days=90)
 
-def read_sentence(df, types_dict, use_time=False):
+def read_sentence(df, types_dict, use_time=False, dont_use_hypen=False):
     if use_time:
-        sentence = [
-            f'{types_dict[df["Type_event"].iloc[0]]}{date.split("/")[1]}-{event.replace(" ","-")}'
+        if dont_use_hypen:
+            sentence = [
+                f'{event.replace(" ","").replace("[","").replace("]","")}{types_dict[df["Type_event"].iloc[0]]}-{date.split("/")[1]}'
                     for event,date in zip(df["Code_event"],df["Data"])
-        ]
+            ]
+        else:
+            sentence = [
+                f'{types_dict[df["Type_event"].iloc[0]]}-{date.split("/")[1]}-{event.replace(" ","-")}'
+                        for event,date in zip(df["Code_event"],df["Data"])
+            ]
     else:
-        sentence = [
-            f'{types_dict[df["Type_event"].iloc[0]]}{event.replace(" ","-")}' 
-            for event in df["Code_event"]
-        ]
+        if dont_use_hypen:
+            sentence = [
+                f'{event.replace(" ","").replace("[","").replace("]","")}{types_dict[df["Type_event"].iloc[0]]}' # sentence creation without hypen
+                for event in df["Code_event"]
+            ]
+        else:
+            sentence = [   
+                f'{types_dict[df["Type_event"].iloc[0]]}-{event.replace(" ","-")}' # sentence creation with hypen
+                for event in df["Code_event"]         
+            ]
     return sentence
             
-def create_nsp_format_3(file_path, use_time=False):   
+def create_nsp_format_3(file_path, use_time=False, dont_use_hypen=False):   
     df, types_dict = read_csv_format_3(file_path)
+    logging.info(f'Read csv input file with {len(df)} rows.')
         
     bag = []
     for _,patient_df in tqdm(df.groupby('Assistito_CodiceFiscale_Criptato'), desc='Creating bags of sentences'):
         sentences = []
         for _,sentence_df in patient_df.groupby('sentence'):
-            sentence = read_sentence(sentence_df, types_dict, use_time)
+            sentence = read_sentence(sentence_df, types_dict, use_time, dont_use_hypen)
             sentences.append(' '.join(sentence))
         # make it cronologically ordered
         sentences = sentences[::-1]
         bag.extend(sentences)    
     bag_size = len(bag)
     
-    pairs = []    
+    pairs = []
+    n_patients = 0
     for _,patient_df in  tqdm(df.groupby('Assistito_CodiceFiscale_Criptato'), desc='Creating pairs of sentences'):
+        n_patients += 1
         sentences = []
         for _,sentence_df in patient_df.groupby('sentence'):
-            sentence = read_sentence(sentence_df, types_dict, use_time)
+            sentence = read_sentence(sentence_df, types_dict, use_time, dont_use_hypen)
             sentences.append(' '.join(sentence))
         # make it cronologically ordered
         sentences = sentences[::-1]
@@ -243,10 +268,12 @@ def create_nsp_format_3(file_path, use_time=False):
                 pair += '0' # they are NOT consecutive
             start+=1
             pairs.append(pair)
-        
+    
+    logging.info(f'Number of patients = {n_patients}')
+    logging.info(f'Created {len(pairs)} pairs (average {len(pairs)/n_patients:.2f} pairs/patient)')
     return pairs
             
-def create_finetune_format_3(file_path, use_time=False):
+def create_finetune_format_3(file_path, use_time=False, dont_use_hypen=False):
     df, types_dict = read_csv_format_3(file_path)
     
     docs = []
@@ -257,7 +284,7 @@ def create_finetune_format_3(file_path, use_time=False):
         
         # creating sentences and date 
         for _,sentence_df in patient_df.groupby('sentence'):
-            sentence = read_sentence(sentence_df, types_dict, use_time)
+            sentence = read_sentence(sentence_df, types_dict, use_time, dont_use_hypen)
             date = sentence_df['Data'].iloc[0] # the date is the same for every row, so it can be used the first
             sentences.append(' '.join(sentence)+ ' [SEP]')
             dates.append(date)
@@ -295,18 +322,26 @@ def create_finetune_format_3(file_path, use_time=False):
     return docs  
         
             
-def create_mlm_only_format_3(file_path, use_time=False):        
+def create_mlm_only_format_3(file_path, use_time=False, dont_use_hypen=False):        
     df, types_dict = read_csv_format_3(file_path)
+    logging.info(f'Read csv input file with {len(df)} rows.')
     
-    docs = []    
+    docs = []
+    n_patients = 0
+    n_sentences = 0
     for _,patient_df in tqdm(df.groupby('Assistito_CodiceFiscale_Criptato'), desc='Creating output lists'):
         sentences = []
+        n_patients += 1
         
         for _,sentence_df in patient_df.groupby('sentence'):
-            sentence = read_sentence(sentence_df, types_dict, use_time)
+            sentence = read_sentence(sentence_df, types_dict, use_time, dont_use_hypen)
             sentences.append(' '.join(sentence)+ " [SEP]")
+            n_sentences += 1
         docs.append('[CLS] '+' '.join(sentences[::-1]))
-    
+        
+    logging.info(f'Number of patients = {n_patients}')
+    logging.info(f'Each patient has in average {n_sentences/n_patients:.2f} sentences')
+    logging.info(f'Created {len(docs)} docs (average {len(docs)/n_patients:.2f} pairs/patient)')
     return docs
 
 #----------------------------------------------------------------------------------------------------------------------------------------------------------------------#
@@ -372,7 +407,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     
     parser.add_argument('--file_path', type=str,
-                        help='Folder where are located the input csv file')
+                        help='Folder where are located the input csv files')
     parser.add_argument('--output_name', type=str, default='dataset.txt',
                         help='Name for the output text file')
     parser.add_argument('--output_folder', type=str,
@@ -390,8 +425,15 @@ if __name__ == '__main__':
     parser.add_argument('--split', action='store_true')
     parser.add_argument('--use_time', action='store_true', 
                         help='This command embed temporal information in the text dataset. The month of the event will be included with the ICD-9 code.')
-    
+    parser.add_argument('--dont_use_hypen', action='store_true',
+                        help='Use this argument if you want to generate text without the hypen that separates the ICD code from the dictionary it comes from.' \
+                            +'The result will be a string with both strings concatenated.')
+        
     args = parser.parse_args()
+    
+    if not os.path.exists(args.output_folder):
+            os.makedirs(args.output_folder)
+    setup_logging(args.output_folder, console="debug")
     
     format = detect_format(args.file_path)
     
@@ -409,12 +451,12 @@ if __name__ == '__main__':
             
     elif format == 'format_3':        
         if args.create_finetuning:
-            docs = create_finetune_format_3(args.file_path, args.use_time)
+            docs = create_finetune_format_3(args.file_path, args.use_time, args.dont_use_hypen)
         if args.create_pretrain:
             if args.mlm_only:
-                docs = create_mlm_only_format_3(args.file_path, args.use_time)
+                docs = create_mlm_only_format_3(args.file_path, args.use_time, args.dont_use_hypen)
             else:
-                docs = create_nsp_format_3(args.file_path, args.use_time)
+                docs = create_nsp_format_3(args.file_path, args.use_time, args.dont_use_hypen)
         if args.create_infer:
             pass
             
@@ -427,8 +469,6 @@ if __name__ == '__main__':
         
     elif args.split and not args.create_infer:
         train,test = train_test_split(docs, test_size=args.test_size, random_state=args.random_state, shuffle=True)
-        if not os.path.exists(args.output_folder):
-            os.makedirs(args.output_folder)
         output_files = [os.path.join(args.output_folder, 'train.txt'),os.path.join(args.output_folder,'test.txt')]
         print('Creating train and text output files')
         for output_file,split in zip(output_files,[train,test]):
@@ -437,7 +477,5 @@ if __name__ == '__main__':
     else:
         if args.create_infer:
             logging.info(f'Creation of inference dataset. Dataset will not be split into train and test')
-        if not os.path.exists(args.output_folder):
-            os.makedirs(args.output_folder)
         with open(os.path.join(args.output_folder, args.output_name), 'w') as file:
             file.write('\n'.join(docs))

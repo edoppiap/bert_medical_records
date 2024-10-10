@@ -106,6 +106,9 @@ def train_tokenizer(tokenizer_name, special_tokens, files, vocab_size, max_lengt
 
 if __name__ == '__main__':
   
+  """ Run this file to train and test how a custom tokenizer truncates the sequences in a dataset with a specific max_seq_length.  
+  """
+  
   parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
   
   parser.add_argument('--input_file', type=str, 
@@ -140,20 +143,25 @@ if __name__ == '__main__':
   
   n_lines = 0
   n_truncated_lines = 0
+  truncated_sequences = []
   with open(args.input_file, 'r') as f:
     for line in tqdm(f, desc='Reading input file'):
       n_lines += 1
       if '<end>' in line:
-        pair = line.split('<end>')[0]
-        if len(pair.split('SEP')) == 2:
-          sentence_a, sentence_b = pair.split('[SEP]')
+        sequence = line.split('<end>')[0]
+        if len(sequence.split('SEP')) == 2:
+          sentence_a, sentence_b = sequence.split('[SEP]')
           inputs = tokenizer(sentence_a,sentence_b, return_tensors='pt')
         else:
-          inputs = tokenizer(pair, return_tensors='pt')
+          inputs = tokenizer(sequence, return_tensors='pt')
         if len(inputs['input_ids'][0]) > args.max_seq_length:
+          truncated_sequences.append(sequence)
           n_truncated_lines += 1
       else:
         inputs = tokenizer(line, return_tensors='pt')
         if len(inputs['input_ids'][0]) > args.max_seq_length:
+          truncated_sequences.append(line)
           n_truncated_lines += 1
   print(f'Tokenizer will truncate {n_truncated_lines}/{n_lines} sequences ({n_truncated_lines/n_lines*100:.2f}%) with max_seq_length = {args.max_seq_length} on this dataset')
+  if len(truncated_sequences) > 0:
+    print(f'Example of truncated sequence:\nFull sequence: {truncated_sequences[0]}\nTokenized sequence: {tokenizer.tokenize((truncated_sequences[0]).split("<end>")[0], max_length=512, truncation=True, padding="max_length" )}')
