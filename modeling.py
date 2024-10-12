@@ -3,18 +3,30 @@ Setting up BERT models with specific configurations and classes, tailored for di
 '''
 from transformers import BertConfig, BertForMaskedLM, BertForPreTraining, BertForNextSentencePrediction
 import os
+import logging
 
-def get_model_from_string(bert_class_name, config):
-    model = None
-    if bert_class_name == 'BertForMaskedLM':
-        model = BertForMaskedLM(config)
-    elif bert_class_name == 'BertForPreTraining':
-        model = BertForPreTraining(config)
-    elif bert_class_name == 'BertForNextSentencePrediction':
-        model = BertForNextSentencePrediction(config)
+bert_classes = {
+    'BertForMaskedLM' : BertForMaskedLM,
+    'BertForNextSentencePrediction': BertForNextSentencePrediction,
+    'BertForPreTraining' : BertForPreTraining
+}
+
+def get_model(bert_class_name, config, pretrained=False, input_path=None):
+    
+    if bert_class_name not in bert_classes:
+        raise ValueError(f'Invalid bert class name {bert_class_name}')        
+    
+    if pretrained:
+        model = bert_classes[bert_class_name].from_pretrained('bert-base-uncased', config=config)
+        logging.info('Loaded an already pretrained version of BERT from server')
+    elif input_path is not None:
+        assert os.path.exists(input_path), 'Invalid model input path provided'
         
-    if model is None:
-        raise ValueError(f'Invalid bert class name {bert_class_name}')
+        model = bert_classes[bert_class_name].from_pretrained(input_path)
+        logging.info('Loaded an already pretrained version of BERT from folder path')
+    else:
+        model = bert_classes[bert_class_name](config)
+        logging.info(f'Loaded the raw architecture of {type(model)} (has to be pretrained!)')
     
     return model
 
@@ -31,23 +43,34 @@ def get_model_from_path(bert_class:str, path):
     
     return model
 
-def get_bert_model(bert_class_name, vocab_size, max_length, pad_token_id):
-    # CLASS THAT CAN BE CHOSED FROM THE UI
-    model_config = BertConfig(vocab_size=vocab_size,
-                                max_position_embeddings=max_length,
-                                hidden_size=768,\
-                                num_hidden_layers=12,
-                                num_attention_heads=12,
-                                intermediate_size=3072,
-                                hidden_act='gelu',
-                                hidden_dropout_prob=0.1,
-                                attention_probs_dropout_prob=0.1,
-                                initializer_range=0.02,
-                                layer_norm_eps=1e-12,
-                                pad_token_id=pad_token_id,
-                                gradient_checkpointing=False,)
+def get_bert_model(bert_class_name, args, pad_token_id, input_path=None):
     
-    model = get_model_from_string(bert_class_name, model_config)
+    model_config = None
+    
+    if args.bert_config_file is not None:
+        assert os.path.isfile(args.bert_config_file), 'You should pass a json file to load the desired Bert Config'
+        model_config = BertConfig.from_json_file(
+            args.bert_config_file
+        )
+    elif input_path is None:    
+        model_config = BertConfig(vocab_size=args.vocab_size,
+                                max_position_embeddings=args.max_seq_length,
+                                hidden_size=args.hidden_size,\
+                                num_hidden_layers=args.num_hidden_layers,
+                                num_attention_heads=args.num_attention_heads,
+                                intermediate_size=args.intermediate_size,
+                                hidden_act=args.hidden_act,
+                                hidden_dropout_prob=args.hidden_dropout_prob,
+                                attention_probs_dropout_prob=args.attention_probs_dropout_prob,
+                                initializer_range=args.initializer_range,
+                                layer_norm_eps=args.layer_norm_eps,
+                                pad_token_id=pad_token_id,
+                                gradient_checkpointing=False)
+        
+    model = get_model(bert_class_name = bert_class_name, 
+                                  config = model_config,
+                                  pretrained = args.use_pretrained_bert,
+                                  input_path = input_path)
 
     # CLASS THAT CAN BE CHOSED FROM THE UI
     #model = BertForMaskedLM(config=model_config) # this one implements only the MLM task

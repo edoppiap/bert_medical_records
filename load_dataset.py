@@ -141,6 +141,7 @@ class NewPreTrainingDataset(torch.utils.data.Dataset):
       pair, label = doc[:pair_end], int(doc[pair_end+len(b'<end>'):].decode('utf-8'))
       
       sentence_a, sentence_b = pair.split(b'[SEP]')
+      sentence_a = sentence_a.lstrip(b'[CLS] ')
       
       inputs = self.tokenizer(sentence_a.decode('utf-8'), sentence_b.decode('utf-8'), return_tensors='pt',
                               max_length=self.max_length, truncation=True, padding='max_length')
@@ -182,7 +183,7 @@ class NewPreTrainingDataset(torch.utils.data.Dataset):
 
       # The remaining 10% of tokens are unchanged
     
-    return {key: torch.tensor(val[0]) for key,val in inputs.items()}
+    return {key: val[0].clone().detach() for key,val in inputs.items()}
   
   def __del__(self):
       self.data_mmap.close()
