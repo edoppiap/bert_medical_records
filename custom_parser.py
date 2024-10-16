@@ -21,6 +21,8 @@ def parse_arguments():
                         choices=['mlm', 'nsp', 'mlm_nsp'])
     parser.add_argument('--mlm_percentage', type=float, default=.15,
                         help='Percentage of token to mask in the maskedlm task')
+    parser.add_argument('--test_split', type=float, default=.2,
+                        help='Percentage of dataset to use as test')
     parser.add_argument('--text_name', type=str, default='text_dataset.txt')
     parser.add_argument('--model_input', type=str, 
                         help='Use this argument to pass the folder where find the pre-trained model')

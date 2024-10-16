@@ -228,6 +228,9 @@ def main():
         bert_class = 'BertForNextSentencePrediction'
     elif args.pre_train_tasks == 'mlm_nsp':
         bert_class = 'BertForPreTraining'
+    
+    if args.test_split == 0 and args.do_eval:
+        args.do_eval = False 
         
     if args.model_input:
         model_path = os.path.join(args.model_input, 'pre_trained_model')
@@ -260,7 +263,8 @@ def main():
                                     max_length=args.max_seq_length,
                                     mlm=args.mlm_percentage if bert_class == 'BertForMaskedLM' or bert_class == 'BertForPreTraining' else 0)
         if args.k_fold == 1:
-            train_dataset, test_dataset = torch.utils.data.random_split(dataset, [.8,.2])
+            logging.info(f'Splitting the dataset in {1-args.test_split*100:.2f}% train and {args.test_split*100:.2f}% test')
+            train_dataset, test_dataset = torch.utils.data.random_split(dataset, [1-args.test_split,args.test_split])
         else:
             skf = KFold(n_splits=args.k_fold, shuffle=True, random_state=42)
             train_dataset,test_dataset = [],[]

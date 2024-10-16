@@ -273,6 +273,9 @@ def main():
         # model_folder = os.path.join(args.model_input, 'pre_trained_model')
         # loaded_args = torch.load(os.path.join(args.model_input, 'training_args.bin'))
         # args.max_seq_length = loaded_args.max_seq_length
+    
+    if args.test_split == 0 and args.do_eval:
+        args.do_eval = False
         
     logging.info(f'\nStart finetuning')
     logging.info(f'Arguments: {args}')
@@ -308,11 +311,11 @@ def main():
                                                file_path=args.input_file,
                                                max_length=args.max_seq_length)
             else:
-                logging.info(f'Splitting the dataset in 80% train and 20% test')
+                logging.info(f'Splitting the dataset in {1-args.test_split*100:.2f}% train and {args.test_split*100:.2f}% test')
                 dataset = NewFinetuningDataset(tokenizer, 
                                     file_path=args.input_file, 
                                     max_length=args.max_seq_length)
-                train_dataset, test_dataset = torch.utils.data.random_split(dataset, [.8,.2])
+                train_dataset, test_dataset = torch.utils.data.random_split(dataset, [1-args.test_split,args.test_split])
         elif os.path.isdir(args.input_file):
             train_file = os.path.join(args.input_file, 'train.txt')
             test_file = os.path.join(args.input_file, 'test.txt')
