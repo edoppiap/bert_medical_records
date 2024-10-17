@@ -285,7 +285,7 @@ def main():
         logging.info('Saving the model in the same folder of the pretrained one')
     logging.info(f"There are {torch.cuda.device_count()} GPUs and {multiprocessing.cpu_count()} CPUs.")
     
-    if args.save_finetuned_folder is not None or not os.path.exists(args.save_finetuned_folder):
+    if args.save_finetuned_folder is not None and not os.path.exists(args.save_finetuned_folder):
         model_path = os.path.join(args.save_finetuned_folder, 'finetuned_model')
     else:
         model_path = os.path.join(output_path, 'finetuned_model')
