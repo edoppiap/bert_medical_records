@@ -273,7 +273,7 @@ def create_nsp_format_3(file_path, use_time=False, dont_use_hypen=False):
     logging.info(f'Created {len(pairs)} pairs (average {len(pairs)/n_patients:.2f} pairs/patient)')
     return pairs
             
-def create_finetune_format_3(file_path, use_time=False, dont_use_hypen=False):
+def create_finetune_format_3(file_path, use_time=False, dont_use_hypen=False, dont_use_augm=False):
     df, types_dict = read_csv_format_3(file_path)
     logging.info(f'Read csv input file with {len(df)} rows.')
     
@@ -301,41 +301,56 @@ def create_finetune_format_3(file_path, use_time=False, dont_use_hypen=False):
         dates = dates[::-1]
         recovery_mask = recovery_mask[::-1]
         
-        # creating docs for training deleting from last
-        i = len(sentences) -2 # we do not start from the last, since it has to be used for the label
-        previous_date = dates[-1]
-        while i > 0:
-            if recovery_mask[i]:
-                doc = '[CLS] '+ ' '.join(sentences[:i])+ ' <end> '
-                # check if it's necessary to add a negative label when only a single sentence remain
-                # if i == 1: 
-                #     doc += '0'
-                # else:
-                
-                if len(dates) > 2 and is_less_than_3_month(dates[i],previous_date):
-                    doc += '1'
-                    sum_labels += 1
-                else: # when we have a single date we surely do not have another hospitalisation
-                    doc += '0' 
-                previous_date = dates[i]
-                docs.append(doc)
-            i -= 1
-        
-        # creating docs for training deleting from first
-        if len(dates) < 2:
-            label = 0
+        if dont_use_augm:
+            if len(dates) < 2:
+                label = 0
+            else:
+                previous_date=None
+                i=len(dates)-2
+                while i>0:
+                    if recovery_mask[i]:
+                        previous_date=dates[i]
+                        break
+                    i-=1
+                label = int(previous_date is not None and is_less_than_3_month(previous_date, dates[-1]))
+                sum_labels += label
+            doc = '[CLS] '+ ' '.join(sentences)+ f' <end> {label}'
+            docs.append(doc)
         else:
-            previous_date = None
-            i = len(recovery_mask) -2 # we know that the last is an hospedalisation, we look for the previous one
+            # creating docs for training deleting from last
+            i = len(sentences) -2 # we do not start from the last, since it has to be used for the label
+            previous_date = dates[-1]
             while i > 0:
                 if recovery_mask[i]:
+                    doc = '[CLS] '+ ' '.join(sentences[:i])+ ' <end> '
+                    # check if it's necessary to add a negative label when only a single sentence remain
+                    # if i == 1: 
+                    #     doc += '0'
+                    # else:
+                    
+                    if len(dates) > 2 and is_less_than_3_month(dates[i],previous_date):
+                        doc += '1'
+                        sum_labels += 1
+                    else: # when we have a single date we surely do not have another hospitalisation
+                        doc += '0' 
                     previous_date = dates[i]
-                    break
-                i-=1
-            label = int(previous_date is not None and is_less_than_3_month(previous_date, dates[-1]))
-        # label = int(len(dates) > 2 and is_less_than_3_month(dates[[i for i,el in enumerate(recovery_mask) if el][-2]],dates[-1]))
-        sum_labels += label * (len(sentences) - 2)
-        docs.extend(['[CLS] '+ ' '.join(sentences[i:])+ f' <end> {label}' for i in range(len(sentences) -2)])
+                    docs.append(doc)
+                i -= 1
+            
+            # creating docs for training deleting from first
+            if len(dates) < 2:
+                label = 0
+            else:
+                previous_date = None
+                i = len(recovery_mask) -2 # we know that the last is an hospedalisation, we look for the previous one
+                while i > 0:
+                    if recovery_mask[i]:
+                        previous_date = dates[i]
+                        break
+                    i-=1
+                label = int(previous_date is not None and is_less_than_3_month(previous_date, dates[-1]))
+            sum_labels += label * (len(sentences) - 2)
+            docs.extend(['[CLS] '+ ' '.join(sentences[i:])+ f' <end> {label}' for i in range(len(sentences) -2)])
     
     logging.info(f'Number of patients = {n_patients}')
     logging.info(f'Created {len(docs)} sequences (average {len(docs)/n_patients:.2f} sequences/patient)')
@@ -449,6 +464,7 @@ if __name__ == '__main__':
     parser.add_argument('--dont_use_hypen', action='store_true',
                         help='Use this argument if you want to generate text without the hypen that separates the ICD code from the dictionary it comes from.' \
                             +'The result will be a string with both strings concatenated.')
+    parser.add_argument('--dont_use_augm', action='store_true', help='Use this parameter to not use augmentation while creating finetuning datasets')
         
     args = parser.parse_args()
     
@@ -472,7 +488,7 @@ if __name__ == '__main__':
             
     elif format == 'format_3':        
         if args.create_finetuning:
-            docs = create_finetune_format_3(args.file_path, args.use_time, args.dont_use_hypen)
+            docs = create_finetune_format_3(args.file_path, args.use_time, args.dont_use_hypen, args.dont_use_augm)
         if args.create_pretrain:
             if args.mlm_only:
                 docs = create_mlm_only_format_3(args.file_path, args.use_time, args.dont_use_hypen)
