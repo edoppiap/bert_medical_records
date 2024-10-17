@@ -311,7 +311,7 @@ def main():
                                                file_path=args.input_file,
                                                max_length=args.max_seq_length)
             else:
-                logging.info(f'Splitting the dataset in {1-args.test_split*100:.2f}% train and {args.test_split*100:.2f}% test')
+                logging.info(f'Splitting the dataset in {(1-args.test_split)*100:.2f}% train and {args.test_split*100:.2f}% test')
                 dataset = NewFinetuningDataset(tokenizer, 
                                     file_path=args.input_file, 
                                     max_length=args.max_seq_length)
