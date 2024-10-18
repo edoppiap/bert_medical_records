@@ -288,8 +288,11 @@ def main():
         logging.info('Saving the model in the same folder of the pretrained one')
     logging.info(f"There are {torch.cuda.device_count()} GPUs and {multiprocessing.cpu_count()} CPUs.")
     
-    if args.save_finetuned_folder is not None and not os.path.exists(args.save_finetuned_folder):
-        model_path = os.path.join(args.save_finetuned_folder, 'finetuned_model')
+    if args.save_finetuned_folder is not None:
+        finetune_save_folder = os.path.join(args.save_finetuned_folder, 'finetuned_model')
+        if os.path.exists(finetune_save_folder):
+            logging.warning('Finetuned folder already present. If a train process will be performed this folder will be overwritten. If you want to perform a further finetune, be aware that you have to pass the already finetuned model to the --model_input parameter.')
+        model_path = finetune_save_folder
     else:
         model_path = os.path.join(output_path, 'finetuned_model')
             
