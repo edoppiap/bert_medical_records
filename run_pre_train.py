@@ -215,6 +215,9 @@ def main():
             os.makedirs(output_path)
                 
     setup_logging(output_path, console="debug")
+    
+    if args.random_seed is not None:
+        torch.manual_seed(args.random_seed)
 
     logging.info(f'Arguments: {args}')
     logging.info(" ".join(sys.argv))    
@@ -266,7 +269,7 @@ def main():
             logging.info(f'Splitting the dataset in {(1-args.test_split)*100:.2f}% train and {args.test_split*100:.2f}% test')
             train_dataset, test_dataset = torch.utils.data.random_split(dataset, [1-args.test_split,args.test_split])
         else:
-            skf = KFold(n_splits=args.k_fold, shuffle=True, random_state=42)
+            skf = KFold(n_splits=args.k_fold, shuffle=True, random_state=args.random_seed)
             train_dataset,test_dataset = [],[]
             for fold, (train_i, test_i) in enumerate(skf.split(dataset)):
                 logging.info(f'Creating split dataset {fold+1}')

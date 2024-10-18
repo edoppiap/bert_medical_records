@@ -277,6 +277,9 @@ def main():
     if args.test_split == 0 and args.do_eval:
         args.do_eval = False
         
+    if args.random_seed is not None:
+        torch.manual_seed(args.random_seed)
+        
     logging.info(f'\nStart finetuning')
     logging.info(f'Arguments: {args}')
     logging.info(" ".join(sys.argv))    
