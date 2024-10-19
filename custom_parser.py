@@ -39,7 +39,7 @@ def parse_arguments():
                             +'Default is 1 = no cross-validation is perfomed.')
     parser.add_argument('--save_finetuned_folder', type=str, default=None,
                         help='Use this argument to specify in which folder save the finetuned model')
-    parser.add_argument('--random_seed', type=int, default=42, help='Random seed')
+    parser.add_argument('--random_seed', type=int, default=None, help='Random seed')
     
     #-----------------------------------------------------------------#
     # BERT CONFIG ARGUMENTS

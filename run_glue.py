@@ -84,7 +84,7 @@ def train(args, train_dataset, model, model_path, output_path):
     logging.info(f"Trained for {epoch + 1:02d} epochs, in total in {str(datetime.now() - start_time)[:-7]}")
     model.save_pretrained(model_path)
     torch.save(args, os.path.join(model_path, 'training_args.bin'))
-    return loss
+    return model, loss
 
 
 # Oltre ad F1 andrebbe calcolato anche il recall e precision
@@ -290,8 +290,8 @@ def main():
     
     if args.save_finetuned_folder is not None:
         finetune_save_folder = os.path.join(args.save_finetuned_folder, 'finetuned_model')
-        if os.path.exists(finetune_save_folder):
-            logging.warning('Finetuned folder already present. If a train process will be performed this folder will be overwritten. If you want to perform a further finetune, be aware that you have to pass the already finetuned model to the --model_input parameter.')
+        if os.path.exists(finetune_save_folder) and args.do_train:
+            logging.warning('Finetuned folder already present. This folder will be overwritten. If you want to perform a further finetune, be aware which model you are passing to the --model_input folder to avoid losing the wrong model.')
         model_path = finetune_save_folder
     else:
         model_path = os.path.join(output_path, 'finetuned_model')
@@ -350,7 +350,7 @@ def main():
         logging.info(f'It will predict labels for the dataset. There are {len(dataset)} documents in the dataset.')
     
     if args.do_train:
-        loss = train(args, train_dataset, model, model_path, output_path)
+        model, loss = train(args, train_dataset, model, model_path, output_path)
         logging.info(f'Average loss = {loss}')
     if args.do_eval:
         result = eval(args, test_dataset, model, output_folder=model_path)
