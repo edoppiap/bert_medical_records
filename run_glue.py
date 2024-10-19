@@ -1,7 +1,8 @@
 from transformers import BertConfig, BertForSequenceClassification
 from transformers import BertTokenizerFast
 from torch.utils.data import DataLoader
-from transformers.data.metrics import acc_and_f1
+# from transformers.data.metrics import acc_and_f1
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, confusion_matrix
 
 import logging
 import sys
@@ -89,8 +90,22 @@ def train(args, train_dataset, model, model_path, output_path):
 
 # Oltre ad F1 andrebbe calcolato anche il recall e precision
 def compute_metrics(preds, truths):
-    logging.info(sum(preds==truths))
-    return acc_and_f1(preds, truths)
+    accuracy = accuracy_score(truths, preds)
+    f1 = f1_score(truths, preds, average='binary')
+    recall = recall_score(truths, preds, average='binary')
+    precision = precision_score(truths, preds, average='binary')
+    
+    tn, fp, _, _ = confusion_matrix(truths, preds).ravel()
+    specificity = tn / (tn + fp)
+    
+    # return acc,f1,recall,precision,specificity
+    return {
+        'acc':accuracy,
+        'rec':recall,
+        'pre':precision,
+        'spe':specificity,
+        'f1':f1
+    }
 
 def eval(args, test_dataset, model, output_folder):
     loader = DataLoader(test_dataset, batch_size=args.train_batch_size,shuffle=False)
@@ -278,6 +293,7 @@ def main():
         args.do_eval = False
         
     if args.random_seed is not None:
+        logging.info(f'Setting the seed as {args.random_seed}')
         torch.manual_seed(args.random_seed)
         
     logging.info(f'\nStart finetuning')
