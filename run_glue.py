@@ -2,7 +2,8 @@ from transformers import BertConfig, BertForSequenceClassification
 from transformers import BertTokenizerFast
 from torch.utils.data import DataLoader
 # from transformers.data.metrics import acc_and_f1
-from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, confusion_matrix
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, confusion_matrix, ConfusionMatrixDisplay
+import matplotlib.pyplot as plt
 
 import logging
 import sys
@@ -89,14 +90,24 @@ def train(args, train_dataset, model, model_path, output_path):
 
 
 # Oltre ad F1 andrebbe calcolato anche il recall e precision
-def compute_metrics(preds, truths):
+def compute_metrics(preds, truths, output_path):
     accuracy = accuracy_score(truths, preds)
     f1 = f1_score(truths, preds, average='binary')
     recall = recall_score(truths, preds, average='binary')
     precision = precision_score(truths, preds, average='binary')
     
-    tn, fp, _, _ = confusion_matrix(truths, preds).ravel()
+    conf_matr = confusion_matrix(truths, preds).ravel()
+    tn, fp, _, _ = conf_matr
     specificity = tn / (tn + fp)
+    
+    disp = ConfusionMatrixDisplay(conf_matr, display_labels=['Negative', 'Positive'])
+    disp.plot(cmap=plt.cm.Blues)
+    plt.savefig(os.path.join(output_path, 'conf_matr.png'))
+    plt.close()
+    
+    with open(os.path.join(output_path, 'classified_sentences.txt'), 'w') as f:
+        for i,(pred,truth) in enumerate(zip(preds,truths)):
+            f.write(f'Sentence {i}: {pred}/{truth} (predicted/truth)\n')
     
     # return acc,f1,recall,precision,specificity
     return {
@@ -148,7 +159,7 @@ def eval(args, test_dataset, model, output_folder):
     
     eval_loss = eval_loss / n_eval_step
     preds = np.argmax(preds, axis=1)
-    result = compute_metrics(preds, truths)
+    result = compute_metrics(preds, truths, output_folder)
     
     return result
 
