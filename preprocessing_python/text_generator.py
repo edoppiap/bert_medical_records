@@ -188,7 +188,8 @@ def read_csv_format_3(file_path):
     
     fread = ro.r('''function(file) {read.csv(file)}''')
     df = fread(file_path)
-    # df = ro.conversion.get_conversion().rpy2py(df)
+    if not isinstance(df, pd.DataFrame):
+        df = ro.conversion.get_conversion().rpy2py(df)
     
     types_event = df['Type_event'].unique().tolist()
     strings_event = ['I','D','P','M', 'M'] # established way of concatenate classes
