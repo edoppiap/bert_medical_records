@@ -96,16 +96,28 @@ def compute_metrics(preds, truths, output_path):
     recall = recall_score(truths, preds, average='binary')
     precision = precision_score(truths, preds, average='binary')
     
-    conf_matr = confusion_matrix(truths, preds).ravel()
-    tn, fp, _, _ = conf_matr
+    conf_matr = confusion_matrix(truths, preds)
+    tn, fp, _, _ = conf_matr.ravel()
     specificity = tn / (tn + fp)
+    
+    matr_path = os.path.join(output_path, 'conf_matr_0.png')
+    txt_path = os.path.join(output_path, 'classified_sentences_0.txt')
+    i=0
+    while True:
+        if os.path.isfile(matr_path):
+            i+=1
+            matr_path = os.path.join(output_path,f'conf_matr_{i}.png')
+            txt_path = os.path.join(output_path,f'classified_sentences_{i}.txt')
+        else:
+            break
+            
     
     disp = ConfusionMatrixDisplay(conf_matr, display_labels=['Negative', 'Positive'])
     disp.plot(cmap=plt.cm.Blues)
-    plt.savefig(os.path.join(output_path, 'conf_matr.png'))
+    plt.savefig(matr_path)
     plt.close()
     
-    with open(os.path.join(output_path, 'classified_sentences.txt'), 'w') as f:
+    with open(txt_path, 'w') as f:
         for i,(pred,truth) in enumerate(zip(preds,truths)):
             f.write(f'Sentence {i}: {pred}/{truth} (predicted/truth)\n')
     
@@ -380,7 +392,7 @@ def main():
         model, loss = train(args, train_dataset, model, model_path, output_path)
         logging.info(f'Average loss = {loss}')
     if args.do_eval:
-        result = eval(args, test_dataset, model, output_folder=model_path)
+        result = eval(args, test_dataset, model, output_folder=output_path)
         
         logging.info(f'{result = }')
     if args.predict:
