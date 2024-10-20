@@ -14,6 +14,7 @@ import torch
 from torch.utils.data import DataLoader, Subset
 import logging
 import multiprocessing
+import time
 
 from utils import setup_logging
 from custom_parser import parse_arguments
@@ -96,7 +97,7 @@ def train(args, train_dataset, model, output_path):
     logging.info(f"Trained for {epoch + 1:02d} epochs, in total in {str(datetime.now() - start_time)[:-7]}")
     model.save_pretrained(output_path)
     torch.save(args, os.path.join(output_path, 'training_args.bin'))
-    return loss
+    return model, loss
 
 def compute_metrics(nsp_preds,nsp_truths, mlm_preds, mlm_truths):
     result = {}
@@ -214,7 +215,10 @@ def main():
         if not os.path.exists(output_path):
             os.makedirs(output_path)
                 
-    setup_logging(output_path, console="debug")
+    setup_logging(output_path, console="debug" if args.debug else 'info')
+    
+    if args.random_seed is not None:
+        torch.manual_seed(args.random_seed)
 
     logging.info(f'Arguments: {args}')
     logging.info(" ".join(sys.argv))    
@@ -228,6 +232,9 @@ def main():
         bert_class = 'BertForNextSentencePrediction'
     elif args.pre_train_tasks == 'mlm_nsp':
         bert_class = 'BertForPreTraining'
+    
+    if args.test_split == 0 and args.do_eval:
+        args.do_eval = False 
         
     if args.model_input:
         model_path = os.path.join(args.model_input, 'pre_trained_model')
@@ -253,6 +260,9 @@ def main():
                             pad_token_id=tokenizer.convert_tokens_to_ids(tokenizer.pad_token),
                             input_path=model_path)
             )
+            sleep_time = 1
+            # logging.info(f'Sleeping {sleep_time} sec...')
+            # time.sleep(sleep_time)
             
     if os.path.isfile(args.input_file):
         dataset = NewPreTrainingDataset(tokenizer,
@@ -260,12 +270,13 @@ def main():
                                     max_length=args.max_seq_length,
                                     mlm=args.mlm_percentage if bert_class == 'BertForMaskedLM' or bert_class == 'BertForPreTraining' else 0)
         if args.k_fold == 1:
-            train_dataset, test_dataset = torch.utils.data.random_split(dataset, [.8,.2])
+            logging.debug(f'Splitting the dataset in {(1-args.test_split)*100:.2f}% train and {args.test_split*100:.2f}% test')
+            train_dataset, test_dataset = torch.utils.data.random_split(dataset, [1-args.test_split,args.test_split])
         else:
-            skf = KFold(n_splits=args.k_fold, shuffle=True, random_state=42)
+            skf = KFold(n_splits=args.k_fold, shuffle=True, random_state=args.random_seed)
             train_dataset,test_dataset = [],[]
             for fold, (train_i, test_i) in enumerate(skf.split(dataset)):
-                logging.info(f'Creating split dataset {fold+1}')
+                logging.debug(f'Creating split dataset {fold+1}')
                 train_dataset.append(Subset(dataset, train_i))
                 test_dataset.append(Subset(dataset, test_i)) 
         if not args.do_train:
@@ -307,18 +318,19 @@ def main():
     else:
         logging.info(f'K-fold cross-validation training with k={args.k_fold}.')
         logging.info(f'There are about {len(train_dataset[0])} documents/sequences in the train dataset and about {len(test_dataset[0])} in the evaluation one.\n'\
-            +'(They can vary a little between split)')
+            +'(The exact length can vary a little between splits)')
     
     if args.do_train:
+        start_time = datetime.now()
         if args.k_fold ==1:
             model_output_path = os.path.join(output_path, 'pre_trained_model')
-            loss = train(args,train_dataset,model,model_output_path)
+            model, loss = train(args,train_dataset,model,model_output_path)
         else:
             loss = 0
-            start_time = datetime.now()
             for i,X in enumerate(train_dataset):
                 model_output_path = os.path.join(output_path, f'model_{i}', 'pre_trained_model')
-                loss += train(args, X, models[i], model_output_path)
+                models[i], temp_loss = train(args, X, models[i], model_output_path)
+                loss += temp_loss
             loss = loss / len(train_dataset)
         logging.info(f'Average loss = {loss}')
         logging.info(f"{len(train_dataset)} models trained with cross-validation, in total in {str(datetime.now() - start_time)[:-7]}")

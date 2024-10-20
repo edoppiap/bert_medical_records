@@ -21,6 +21,8 @@ def parse_arguments():
                         choices=['mlm', 'nsp', 'mlm_nsp'])
     parser.add_argument('--mlm_percentage', type=float, default=.15,
                         help='Percentage of token to mask in the maskedlm task')
+    parser.add_argument('--test_split', type=float, default=.2,
+                        help='Percentage of dataset to use as test')
     parser.add_argument('--text_name', type=str, default='text_dataset.txt')
     parser.add_argument('--model_input', type=str, 
                         help='Use this argument to pass the folder where find the pre-trained model')
@@ -37,6 +39,8 @@ def parse_arguments():
                             +'Default is 1 = no cross-validation is perfomed.')
     parser.add_argument('--save_finetuned_folder', type=str, default=None,
                         help='Use this argument to specify in which folder save the finetuned model')
+    parser.add_argument('--random_seed', type=int, default=None, help='Random seed')
+    parser.add_argument('--debug', action='store_true', help='Use this argument to print additional messages and save the confusion matrix in the finetuning evaluation')
     
     #-----------------------------------------------------------------#
     # BERT CONFIG ARGUMENTS

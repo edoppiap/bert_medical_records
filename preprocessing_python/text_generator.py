@@ -188,7 +188,8 @@ def read_csv_format_3(file_path):
     
     fread = ro.r('''function(file) {read.csv(file)}''')
     df = fread(file_path)
-    # df = ro.conversion.get_conversion().rpy2py(df)
+    if not isinstance(df, pd.DataFrame):
+        df = ro.conversion.get_conversion().rpy2py(df)
     
     types_event = df['Type_event'].unique().tolist()
     strings_event = ['I','D','P','M', 'M'] # established way of concatenate classes
@@ -273,52 +274,97 @@ def create_nsp_format_3(file_path, use_time=False, dont_use_hypen=False):
     logging.info(f'Created {len(pairs)} pairs (average {len(pairs)/n_patients:.2f} pairs/patient)')
     return pairs
             
-def create_finetune_format_3(file_path, use_time=False, dont_use_hypen=False):
+def create_finetune_format_3(file_path, use_time=False, dont_use_hypen=False, dont_use_augm=False):
     df, types_dict = read_csv_format_3(file_path)
+    logging.info(f'Read csv input file with {len(df)} rows.')
+    
+    n_patients = 0
+    sum_labels = 0
+    n_hosp_event = 0
     
     docs = []
     for _,patient_df in tqdm(df.groupby('Assistito_CodiceFiscale_Criptato'), desc='Creating docs'):
         sentences = []
         dates = []
-        recovery_mask = []
+        hosp_mask = []
+        med_mask = []
+        n_patients += 1
         
         # creating sentences and date 
         for _,sentence_df in patient_df.groupby('sentence'):
             sentence = read_sentence(sentence_df, types_dict, use_time, dont_use_hypen)
-            date = sentence_df['Data'].iloc[0] # the date is the same for every row, so it can be used the first
+            date = sentence_df['Data'].iloc[-1] # the date is not always the same, we use tha last one cronologically
             sentences.append(' '.join(sentence)+ ' [SEP]')
             dates.append(date)
             
-            recovery_mask.append('Dimissioni - RO' in sentence_df['Label_event'].unique())
+            event_labels = sentence_df['Label_event'].unique()            
+            hosp_mask.append('Dimissioni - RO' in event_labels)
+            med_mask.append('Farmaci D' not in event_labels and 'Farmaci S' not in event_labels)
+            # logging.info(f"Label_event = {list(sentence_df['Label_event'])}")
+            # logging.info(f"Dates = {list(sentence_df['Data'])}")
             
         # cronologically order the sentences and dates
         sentences = sentences[::-1]
         dates = dates[::-1]
-        recovery_mask = recovery_mask[::-1]
+        hosp_mask = hosp_mask[::-1]
+        med_mask = med_mask[::-1]
         
-        # creating docs for training deleting from last
-        i = len(sentences) -2 # we do not start from the last, since it has to be used for the label
-        precedent_date = dates[-1]
-        while i > 0:
-            if recovery_mask[i]:
-                doc = '[CLS] '+ ' '.join(sentences[:i])+ ' <end> '
-                # check if it's necessary to add a negative label when only a single sentence remain
-                # if i == 1: 
-                #     doc += '0'
-                # else:
-                
-                if len(dates) > 2 and is_less_than_3_month(dates[i],precedent_date):
-                    doc += '1'
-                else: # when we have a single date we surely do not have another hospitalisation
-                    doc += '0' 
-                precedent_date = dates[i]
-                docs.append(doc)
-            i -= 1
+        n_hosp_event += sum(hosp_mask)
         
-        # creating docs for training deleting from first
-        label = int(len(dates) > 2 and is_less_than_3_month(dates[-2],dates[-1]))
-        docs.extend(['[CLS] '+ ' '.join(sentences[i:])+ f' <end> {label}' for i in range(len(sentences) -2)])
-    
+        if dont_use_augm: # do not use augmentation 
+            previous_date=None
+            # look for the previous hosp event
+            i=len(dates)-2 # we dont start from the last since we already know its an hosp event
+            while len(dates) > 2 and i>0:
+                if med_mask[i]:
+                    previous_date=dates[i]
+                    break
+                i-=1
+            label = int(previous_date is not None and is_less_than_3_month(previous_date, dates[-1]))
+            # if label and n_patients < 200:
+            #     logging.info(f"Positive CF = {sentence_df['Assistito_CodiceFiscale_Criptato'].iloc[0]}")
+            # elif n_patients < 200:
+            #     logging.info(f"Negative CF = {sentence_df['Assistito_CodiceFiscale_Criptato'].iloc[0]}")
+            sum_labels += label
+            doc = '[CLS] '+ ' '.join(sentences[:-1])+ f' <end> {label}' # the last event has to be used only as label
+            docs.append(doc)
+        else: # use augmentation
+            # creating docs for training deleting from last
+            i = len(sentences) -1 # we start from the last, since has to be used as label
+            while i > 0:
+                if hosp_mask[i]: # we have found an hospedalisation event
+                    # the label has to be calculated seeing this date and the previous (if exists)
+                    previous_date = None
+                    j=i-1 # we start looking for the previous hosp event from this one
+                    while j>0:
+                        if med_mask[j]: # we have found the previous hosp event
+                            previous_date = dates[j] 
+                            break # found it, we can exit
+                        j-=1
+                    label = int(previous_date is not None and is_less_than_3_month(previous_date,dates[i]))
+                    sum_labels += label # for stats reason
+                    
+                    # create a sequence up to the med event before this one, use this one as label
+                    doc = '[CLS] '+ ' '.join(sentences[:i])+ f' <end> {label}'
+                    docs.append(doc)
+                i -= 1
+            
+            # creating docs for training deleting from first
+            previous_date = None
+            i = len(sentences) -2 # we know that the last is an hospedalisation, we look for the previous one
+            while len(dates) > 2 and i > 0:
+                if med_mask[i]:
+                    previous_date = dates[i]
+                    break
+                i-=1
+            label = int(previous_date is not None and is_less_than_3_month(previous_date, dates[-1]))
+            sum_labels += label * (len(sentences) - 2)
+            docs.extend(['[CLS] '+ ' '.join(sentences[i:])+ f' <end> {label}' for i in range(len(sentences) -2)])
+            
+    logging.info(f'Number of patients = {n_patients}')
+    logging.info(f'{n_hosp_event} hospitalisation events (average {n_hosp_event/n_patients:.2f} per patient)')
+    logging.info(f'Created {len(docs)} sequences (average {len(docs)/n_patients:.2f} sequences/patient)')
+    logging.info(f'Number of positive labels: {sum_labels}/{len(docs)} ({sum_labels/len(docs)*100:.2f}%)')
     return docs  
         
             
@@ -428,6 +474,7 @@ if __name__ == '__main__':
     parser.add_argument('--dont_use_hypen', action='store_true',
                         help='Use this argument if you want to generate text without the hypen that separates the ICD code from the dictionary it comes from.' \
                             +'The result will be a string with both strings concatenated.')
+    parser.add_argument('--dont_use_augm', action='store_true', help='Use this parameter to not use augmentation while creating finetuning datasets')
         
     args = parser.parse_args()
     
@@ -451,7 +498,7 @@ if __name__ == '__main__':
             
     elif format == 'format_3':        
         if args.create_finetuning:
-            docs = create_finetune_format_3(args.file_path, args.use_time, args.dont_use_hypen)
+            docs = create_finetune_format_3(args.file_path, args.use_time, args.dont_use_hypen, args.dont_use_augm)
         if args.create_pretrain:
             if args.mlm_only:
                 docs = create_mlm_only_format_3(args.file_path, args.use_time, args.dont_use_hypen)

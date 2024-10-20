@@ -1,7 +1,9 @@
 from transformers import BertConfig, BertForSequenceClassification
 from transformers import BertTokenizerFast
 from torch.utils.data import DataLoader
-from transformers.data.metrics import acc_and_f1
+# from transformers.data.metrics import acc_and_f1
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, confusion_matrix, ConfusionMatrixDisplay
+import matplotlib.pyplot as plt
 
 import logging
 import sys
@@ -84,13 +86,50 @@ def train(args, train_dataset, model, model_path, output_path):
     logging.info(f"Trained for {epoch + 1:02d} epochs, in total in {str(datetime.now() - start_time)[:-7]}")
     model.save_pretrained(model_path)
     torch.save(args, os.path.join(model_path, 'training_args.bin'))
-    return loss
+    return model, loss
 
 
-# Oltre ad F1 andrebbe calcolato anche il recall e precision
-def compute_metrics(preds, truths):
-    logging.info(sum(preds==truths))
-    return acc_and_f1(preds, truths)
+def compute_metrics(preds, truths, output_path, save_images=False):
+    accuracy = accuracy_score(truths, preds)
+    f1 = f1_score(truths, preds, average='binary')
+    recall = recall_score(truths, preds, average='binary')
+    precision = precision_score(truths, preds, average='binary')
+    
+    conf_matr = confusion_matrix(truths, preds)
+    tn, fp, _, _ = conf_matr.ravel()
+    specificity = tn / (tn + fp)
+    
+    if (save_images):
+        logging.debug(f'Saving confusion matrix in {output_path}')
+        matr_path = os.path.join(output_path, 'conf_matr_0.png')
+        txt_path = os.path.join(output_path, 'classified_sentences_0.txt')
+        i=0
+        while True:
+            if os.path.isfile(matr_path):
+                i+=1
+                matr_path = os.path.join(output_path,f'conf_matr_{i}.png')
+                txt_path = os.path.join(output_path,f'classified_sentences_{i}.txt')
+            else:
+                break
+                
+        
+        disp = ConfusionMatrixDisplay(conf_matr, display_labels=['Negative', 'Positive'])
+        disp.plot(cmap=plt.cm.Blues)
+        plt.savefig(matr_path)
+        plt.close()
+        
+        with open(txt_path, 'w') as f:
+            for i,(pred,truth) in enumerate(zip(preds,truths)):
+                f.write(f'Sentence {i}: {pred}/{truth} (predicted/truth)\n')
+    
+    # return acc,f1,recall,precision,specificity
+    return {
+        'acc':accuracy,
+        'rec':recall,
+        'pre':precision,
+        'spe':specificity,
+        'f1':f1
+    }
 
 def eval(args, test_dataset, model, output_folder):
     loader = DataLoader(test_dataset, batch_size=args.train_batch_size,shuffle=False)
@@ -133,7 +172,7 @@ def eval(args, test_dataset, model, output_folder):
     
     eval_loss = eval_loss / n_eval_step
     preds = np.argmax(preds, axis=1)
-    result = compute_metrics(preds, truths)
+    result = compute_metrics(preds, truths, output_folder, save_images=args.debug)
     
     return result
 
@@ -175,19 +214,19 @@ def load_training_args(args):
     pretrain_model_folder = os.path.join(args.model_input, 'pre_trained_model')
     if os.path.exists(os.path.join(args.model_input, 'training_args.bin')):
         loaded_args = torch.load(os.path.join(args.model_input, 'training_args.bin'))
-        logging.info('Loaded training arguments from provided folder')
+        logging.debug('Loaded training arguments from provided folder')
     elif os.path.exists(os.path.join(finetune_model_folder, 'training_args.bin')):
         loaded_args = torch.load(os.path.join(finetune_model_folder, 'training_args.bin'))
-        logging.info('Loaded training arguments from finetuned_model')
+        logging.debug('Loaded training arguments from finetuned_model')
     elif os.path.exists(os.path.join(pretrain_model_folder, 'training_args.bin')):
         loaded_args = torch.load(os.path.join(pretrain_model_folder, 'training_args.bin'))
-        logging.info('Loaded training arguments from pretrained_model')
+        logging.debug('Loaded training arguments from pretrained_model')
     else:
-        logging.info('No saved training arguments found')
+        logging.debug('No saved training arguments found')
         return args
     
     if args.max_seq_length != loaded_args.max_seq_length:
-        logging.info('Detected loaded arguments different from command arguments. BERT config arguments will override the specified ones.')
+        logging.warning('Detected loaded arguments different from command arguments. BERT config arguments will override the specified ones.')
         args.max_seq_length = loaded_args.max_seq_length
         args.hidden_size = loaded_args.hidden_size
         args.num_hidden_layers = loaded_args.num_hidden_layers
@@ -212,25 +251,25 @@ def load_model(model_input, tokenizer_folder=None, use_pretrained=False, do_trai
             tokenizer_folder = os.path.join(model_input, 'tokenizer')
         if os.path.exists(tokenizer_folder):
             tokenizer = BertTokenizerFast.from_pretrained(tokenizer_folder)
-            logging.info(f'Loaded custom tokenizer from {tokenizer_folder}')
+            logging.debug(f'Loaded custom tokenizer from {tokenizer_folder}')
         else:
             tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
-            logging.info(f'Loaded pretrained tokenizer from HuggingFace (bert-base-uncased)')
+            logging.debug(f'Loaded pretrained tokenizer from HuggingFace (bert-base-uncased)')
             
         if do_train or do_eval:
             try:
                 model = BertForSequenceClassification.from_pretrained(model_input)
-                logging.info(f'Loaded pretrained/finetuned model from selected folder {model_input}')
+                logging.debug(f'Loaded pretrained/finetuned model from selected folder {model_input}')
             except:
                 try:
                     finetuned_folder = os.path.join(model_input, 'finetuned_model')
                     model = BertForSequenceClassification.from_pretrained(finetuned_folder)
-                    logging.info(f'Loading pretrained model from {finetuned_folder}')
+                    logging.debug(f'Loading pretrained model from {finetuned_folder}')
                 except:
-                    logging.info(f'Trying loading model from pre_trained_model folder')
+                    logging.debug(f'Trying loading model from pre_trained_model folder')
                     pretrained_folder = os.path.join(model_input, 'pre_trained_model')
                     model = BertForSequenceClassification.from_pretrained(pretrained_folder)
-                    logging.info(f'Loading pretrained model from {pretrained_folder}')
+                    logging.debug(f'Loading pretrained model from {pretrained_folder}')
         elif predict:
             model = BertForSequenceClassification.from_pretrained(model_input)
         
@@ -266,24 +305,34 @@ def main():
         if not os.path.exists(output_path):
             os.makedirs(output_path)
             
-    setup_logging(output_path, console='debug')
+    setup_logging(output_path, console='debug' if args.debug else 'info')
     
     if args.model_input:
         args = load_training_args(args)
         # model_folder = os.path.join(args.model_input, 'pre_trained_model')
         # loaded_args = torch.load(os.path.join(args.model_input, 'training_args.bin'))
         # args.max_seq_length = loaded_args.max_seq_length
+    
+    if args.test_split == 0 and args.do_eval:
+        args.do_eval = False
         
-    logging.info(f'\nStart finetuning')
+    if args.random_seed is not None:
+        logging.debug(f'Setting the seed as {args.random_seed}')
+        torch.manual_seed(args.random_seed)
+        
+    logging.info(f'Start finetuning')
     logging.info(f'Arguments: {args}')
     logging.info(" ".join(sys.argv))    
     logging.info(f'Output files will be saved in folder: {output_path}')
     if output_path == args.model_input:
-        logging.info('Saving the model in the same folder of the pretrained one')
+        logging.debug('Saving the model in the same folder of the pretrained one')
     logging.info(f"There are {torch.cuda.device_count()} GPUs and {multiprocessing.cpu_count()} CPUs.")
     
-    if args.save_finetuned_folder is not None or not os.path.exists(args.save_finetuned_folder):
-        model_path = os.path.join(args.save_finetuned_folder, 'finetuned_model')
+    if args.save_finetuned_folder is not None:
+        finetune_save_folder = os.path.join(args.save_finetuned_folder, 'finetuned_model')
+        if os.path.exists(finetune_save_folder) and args.do_train:
+            logging.warning('Finetuned folder already present. This folder will be overwritten. If you want to perform a further finetune, be aware which model you are passing to the --model_input folder to avoid losing the wrong model.')
+        model_path = finetune_save_folder
     else:
         model_path = os.path.join(output_path, 'finetuned_model')
             
@@ -298,21 +347,21 @@ def main():
     if not args.predict:
         if os.path.isfile(args.input_file):
             if args.do_train and not args.do_eval:
-                logging.info(f'Loading the entire dataset to perform training')
+                logging.debug(f'Loading the entire dataset to perform training')
                 train_dataset = NewFinetuningDataset(tokenizer,
                                                file_path=args.input_file,
                                                max_length=args.max_seq_length)
             elif not args.do_train and args.do_eval:
-                logging.info(f'Loading the entire dataset to perform evaluation')
+                logging.debug(f'Loading the entire dataset to perform evaluation')
                 test_dataset = NewFinetuningDataset(tokenizer,
                                                file_path=args.input_file,
                                                max_length=args.max_seq_length)
             else:
-                logging.info(f'Splitting the dataset in 80% train and 20% test')
+                logging.debug(f'Splitting the dataset in {(1-args.test_split)*100:.2f}% train and {args.test_split*100:.2f}% test')
                 dataset = NewFinetuningDataset(tokenizer, 
                                     file_path=args.input_file, 
                                     max_length=args.max_seq_length)
-                train_dataset, test_dataset = torch.utils.data.random_split(dataset, [.8,.2])
+                train_dataset, test_dataset = torch.utils.data.random_split(dataset, [1-args.test_split,args.test_split])
         elif os.path.isdir(args.input_file):
             train_file = os.path.join(args.input_file, 'train.txt')
             test_file = os.path.join(args.input_file, 'test.txt')
@@ -341,10 +390,10 @@ def main():
         logging.info(f'It will predict labels for the dataset. There are {len(dataset)} documents in the dataset.')
     
     if args.do_train:
-        loss = train(args, train_dataset, model, model_path, output_path)
+        model, loss = train(args, train_dataset, model, model_path, output_path)
         logging.info(f'Average loss = {loss}')
     if args.do_eval:
-        result = eval(args, test_dataset, model, output_folder=model_path)
+        result = eval(args, test_dataset, model, output_folder=output_path)
         
         logging.info(f'{result = }')
     if args.predict:

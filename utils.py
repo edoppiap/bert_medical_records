@@ -9,6 +9,8 @@ def setup_logging(output_folder: str, console: str = 'debug',
                   info_filename:str = 'info.log', debug_filename:str = 'debug.log'):
     
     base_formatter = logging.Formatter('%(asctime)s   %(message)s', "%Y-%m-%d %H:%M:%S")
+    logging.getLogger('matplotlib.font_manager').setLevel(logging.ERROR)
+    
     logger = logging.getLogger('')
     logger.setLevel(logging.DEBUG)
     
