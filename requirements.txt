@@ -8,3 +8,4 @@ scikit-learn
 stqdm
 torch
 rpy2
+matplotlib

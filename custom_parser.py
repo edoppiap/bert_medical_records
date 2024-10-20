@@ -40,6 +40,7 @@ def parse_arguments():
     parser.add_argument('--save_finetuned_folder', type=str, default=None,
                         help='Use this argument to specify in which folder save the finetuned model')
     parser.add_argument('--random_seed', type=int, default=None, help='Random seed')
+    parser.add_argument('--debug', action='store_true', help='Use this argument to print additional messages and save the confusion matrix in the finetuning evaluation')
     
     #-----------------------------------------------------------------#
     # BERT CONFIG ARGUMENTS

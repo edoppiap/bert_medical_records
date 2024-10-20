@@ -215,7 +215,7 @@ def main():
         if not os.path.exists(output_path):
             os.makedirs(output_path)
                 
-    setup_logging(output_path, console="debug")
+    setup_logging(output_path, console="debug" if args.debug else 'info')
     
     if args.random_seed is not None:
         torch.manual_seed(args.random_seed)
@@ -261,8 +261,8 @@ def main():
                             input_path=model_path)
             )
             sleep_time = 1
-            logging.info(f'Sleeping {sleep_time} sec...')
-            time.sleep(sleep_time)
+            # logging.info(f'Sleeping {sleep_time} sec...')
+            # time.sleep(sleep_time)
             
     if os.path.isfile(args.input_file):
         dataset = NewPreTrainingDataset(tokenizer,
@@ -270,13 +270,13 @@ def main():
                                     max_length=args.max_seq_length,
                                     mlm=args.mlm_percentage if bert_class == 'BertForMaskedLM' or bert_class == 'BertForPreTraining' else 0)
         if args.k_fold == 1:
-            logging.info(f'Splitting the dataset in {(1-args.test_split)*100:.2f}% train and {args.test_split*100:.2f}% test')
+            logging.debug(f'Splitting the dataset in {(1-args.test_split)*100:.2f}% train and {args.test_split*100:.2f}% test')
             train_dataset, test_dataset = torch.utils.data.random_split(dataset, [1-args.test_split,args.test_split])
         else:
             skf = KFold(n_splits=args.k_fold, shuffle=True, random_state=args.random_seed)
             train_dataset,test_dataset = [],[]
             for fold, (train_i, test_i) in enumerate(skf.split(dataset)):
-                logging.info(f'Creating split dataset {fold+1}')
+                logging.debug(f'Creating split dataset {fold+1}')
                 train_dataset.append(Subset(dataset, train_i))
                 test_dataset.append(Subset(dataset, test_i)) 
         if not args.do_train:
