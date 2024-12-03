@@ -6,12 +6,10 @@ import argparse
 from datetime import datetime
 from tqdm import tqdm
 
-from tokenizers import Tokenizer
-from tokenizers import BertWordPieceTokenizer
-from tokenizers.models import BPE, WordPiece
-from tokenizers.trainers import BpeTrainer, WordPieceTrainer
-from transformers import BertTokenizerFast, RetriBertTokenizer, RetriBertTokenizerFast
-from transformers import BertTokenizer
+from tokenizers import Tokenizer, pre_tokenizers
+from tokenizers.trainers import WordPieceTrainer
+from tokenizers import models, normalizers, processors, decoders
+from transformers import BertTokenizerFast
 
 def get_tokenizer_from_string(tokenizer_name: str, model_path, vocab_size):
   tokenizer = None
@@ -59,29 +57,46 @@ def get_tokenizer(args, output_path, path=None):
                                     output_path=output_path)
   return tokenizer
 
-def train_tokenizer(tokenizer_name, special_tokens, files, vocab_size, max_length, output_path):  
+def train_tokenizer(tokenizer_name, special_tokens, files, vocab_size, max_length, output_path, do_lower_case=False):  
   tokenizer_path = os.path.join(output_path,'tokenizer')
   
   if os.path.exists(os.path.join(tokenizer_path, 'config.json')):
-    logging.info('Tokenizer found')
+    logging.info(f'Tokenizer found inf {tokenizer_path}, loading it')
     
   else:
-    logging.info('Train the tokenizer')
+    icd9_codes = set()
+    for file in files:
+      with open(file, 'r') as f:
+        lines = f.readlines()
+        for line in tqdm(lines, desc='Reading file'):
+          for word in line.split(' '):
+            if word not in special_tokens:
+              icd9_codes.add(word)
 
     # initialize the WordPiece tokenizer
     # CLASS THAT CAN BE CHOSED FROM THE UI
-    tokenizer = BertWordPieceTokenizer()
-    # train the tokenizer
-    tokenizer.train(files=files, vocab_size=vocab_size, special_tokens=special_tokens)
+    tokenizer = Tokenizer(models.WordPiece(unk_token="[UNK]"))
     
-    # enable truncation up to the maximum 512 tokens
-    tokenizer.enable_truncation(max_length=max_length)
+    tokenizer.pre_tokenizer = pre_tokenizers.WhitespaceSplit()
+    tokenizer.normalizer = normalizers.BertNormalizer(lowercase=do_lower_case)
+
+    tokenizer.add_special_tokens(special_tokens)
+    tokenizer.post_processor = processors.BertProcessing(
+        ("[SEP]", tokenizer.token_to_id("[SEP]")),
+        ("[CLS]", tokenizer.token_to_id("[CLS]")),
+    )
+
+    tokenizer.decoder = decoders.WordPiece() 
+     
+    trainer = WordPieceTrainer(special_tokens=special_tokens)
+    tokenizer.train_from_iterator(icd9_codes, trainer)
+    tokenizer.enable_truncation(max_length)
     
     # make the directory if not already there
     if not os.path.isdir(tokenizer_path):
         os.makedirs(tokenizer_path)
-    # save the tokenizer 
-    tokenizer.save_model(tokenizer_path)
+        
+    tokenizer.save(os.path.join(tokenizer_path,'tokenizer.json'))
     
     # dumping some of the tokenizer config to config file, 
     # including special tokens, whether to lower case and the maximum sequence length
@@ -100,7 +115,7 @@ def train_tokenizer(tokenizer_name, special_tokens, files, vocab_size, max_lengt
     
     logging.info(f'Custom tokenzier trained and saved in {tokenizer_path}')
     
-  tokenizer = get_tokenizer_from_string(tokenizer_name, tokenizer_path, vocab_size)
+  tokenizer = BertTokenizerFast.from_pretrained(tokenizer_path, do_lower_case=do_lower_case, vocab_size=vocab_size)
   
   return tokenizer
 
@@ -119,7 +134,7 @@ if __name__ == '__main__':
                         help='The maximum total input sequence length after WordPiece tokenization. '+\
                             'Set this parameter with the same value of the used during training to know how many sequences will be truncated')
   parser.add_argument('--use_pretrained_bert', action='store_true',
-                        help='This will initialize the bert model as already pre-trained')
+                        help='Use this argument to load a custom tokenizer')
   parser.add_argument('--vocab_size', type=int, default=30_522, help=' ')
   parser.add_argument('--tokenizer_name', type=str, default='BertTokenizerFast',
                         choices=['BertTokenizerFast'],
@@ -149,7 +164,7 @@ if __name__ == '__main__':
       n_lines += 1
       if '<end>' in line:
         sequence = line.split('<end>')[0]
-        if len(sequence.split('SEP')) == 2:
+        if len(sequence.split('[SEP]')) == 2:
           sentence_a, sentence_b = sequence.split('[SEP]')
           inputs = tokenizer(sentence_a,sentence_b, return_tensors='pt')
         else:

@@ -230,6 +230,9 @@ def read_sentence(df, types_dict, use_time=False, dont_use_hypen=False):
                 for event in df["Code_event"]         
             ]
     return sentence
+
+def read_sentence_nl(df, types_dict):
+    return df['Description_event'].tolist()
             
 def create_nsp_format_3(file_path, use_time=False, dont_use_hypen=False):   
     df, types_dict = read_csv_format_3(file_path)
@@ -274,7 +277,7 @@ def create_nsp_format_3(file_path, use_time=False, dont_use_hypen=False):
     logging.info(f'Created {len(pairs)} pairs (average {len(pairs)/n_patients:.2f} pairs/patient)')
     return pairs
             
-def create_finetune_format_3(file_path, use_time=False, dont_use_hypen=False, dont_use_augm=False):
+def create_finetune_format_3(file_path, use_time=False, dont_use_hypen=False, dont_use_augm=False, use_nl=False):
     df, types_dict = read_csv_format_3(file_path)
     logging.info(f'Read csv input file with {len(df)} rows.')
     
@@ -292,7 +295,10 @@ def create_finetune_format_3(file_path, use_time=False, dont_use_hypen=False, do
         
         # creating sentences and date 
         for _,sentence_df in patient_df.groupby('sentence'):
-            sentence = read_sentence(sentence_df, types_dict, use_time, dont_use_hypen)
+            if use_nl:
+                sentence = read_sentence_nl(sentence_df, types_dict)
+            else:
+                sentence = read_sentence(sentence_df, types_dict, use_time, dont_use_hypen)
             date = sentence_df['Data'].iloc[-1] # the date is not always the same, we use tha last one cronologically
             sentences.append(' '.join(sentence)+ ' [SEP]')
             dates.append(date)
@@ -475,11 +481,13 @@ if __name__ == '__main__':
                         help='Use this argument if you want to generate text without the hypen that separates the ICD code from the dictionary it comes from.' \
                             +'The result will be a string with both strings concatenated.')
     parser.add_argument('--dont_use_augm', action='store_true', help='Use this parameter to not use augmentation while creating finetuning datasets')
+    parser.add_argument('--use_nl', action='store_true', help='Use this parameter to use natural language in the dataset')
         
     args = parser.parse_args()
     
     if not os.path.exists(args.output_folder):
             os.makedirs(args.output_folder)
+    logging.info(f'The output file will be saved in {args.output_folder}')
     setup_logging(args.output_folder, console="debug")
     
     format = detect_format(args.file_path)
@@ -498,7 +506,7 @@ if __name__ == '__main__':
             
     elif format == 'format_3':        
         if args.create_finetuning:
-            docs = create_finetune_format_3(args.file_path, args.use_time, args.dont_use_hypen, args.dont_use_augm)
+            docs = create_finetune_format_3(args.file_path, args.use_time, args.dont_use_hypen, args.dont_use_augm, args.use_nl)
         if args.create_pretrain:
             if args.mlm_only:
                 docs = create_mlm_only_format_3(args.file_path, args.use_time, args.dont_use_hypen)
