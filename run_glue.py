@@ -2,7 +2,7 @@ from transformers import BertConfig, BertForSequenceClassification
 from transformers import BertTokenizerFast
 from torch.utils.data import DataLoader
 # from transformers.data.metrics import acc_and_f1
-from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, confusion_matrix, ConfusionMatrixDisplay
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, confusion_matrix, ConfusionMatrixDisplay, matthews_corrcoef
 import matplotlib.pyplot as plt
 
 import logging
@@ -94,13 +94,20 @@ def compute_metrics(preds, truths, output_path, save_images=False):
     f1 = f1_score(truths, preds, average='binary')
     recall = recall_score(truths, preds, average='binary')
     precision = precision_score(truths, preds, average='binary')
+    mcc = matthews_corrcoef(truths,preds)
     
     conf_matr = confusion_matrix(truths, preds)
     tn, fp, _, _ = conf_matr.ravel()
     specificity = tn / (tn + fp)
     
     if (save_images):
-        logging.debug(f'Saving confusion matrix in {output_path}')
+        cmtx = pd.DataFrame(
+            conf_matr, 
+            index=['P', 'N'], 
+            columns=['PP', 'PN']
+        )
+        logging.debug(f'Confusion matrix:\nTot prediction={conf_matr.sum()}\n{cmtx}')
+        logging.debug(f'An image of the confusion matrix is saved in {output_path}')
         matr_path = os.path.join(output_path, 'conf_matr_0.png')
         txt_path = os.path.join(output_path, 'classified_sentences_0.txt')
         i=0
@@ -125,10 +132,11 @@ def compute_metrics(preds, truths, output_path, save_images=False):
     # return acc,f1,recall,precision,specificity
     return {
         'acc':accuracy,
+        'mcc':mcc,
+        'f1':f1,
         'rec':recall,
         'pre':precision,
-        'spe':specificity,
-        'f1':f1
+        'spe':specificity
     }
 
 def eval(args, test_dataset, model, output_folder):
