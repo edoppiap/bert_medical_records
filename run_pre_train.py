@@ -21,7 +21,7 @@ from custom_parser import parse_arguments
 from modeling import get_bert_model, get_model_from_path
 from tokenizer import train_tokenizer, get_tokenizer_from_path, get_tokenizer
 from optimizer import get_optimizer
-from load_dataset import PreTrainingDataset, NewPreTrainingDataset
+from load_dataset import NewPreTrainingDataset
 
 def train(args, train_dataset, model, output_path):
     start_time = datetime.now()
@@ -333,7 +333,10 @@ def main():
                 loss += temp_loss
             loss = loss / len(train_dataset)
         logging.info(f'Average loss = {loss}')
-        logging.info(f"{len(train_dataset)} models trained with cross-validation, in total in {str(datetime.now() - start_time)[:-7]}")
+        if args.k_fold == 1:
+            logging.info(f"{len(train_dataset)} models trained with cross-validation for {args.num_epochs} epochs, total training time {str(datetime.now() - start_time)[:-7]}")
+        else:
+            logging.info(f'Trained for {args.num_epochs} epochs, total training time: {str(datetime.now() - start_time)[:-7]}')
     
     if args.do_eval:
         if args.k_fold == 1:

@@ -2,8 +2,10 @@ from transformers import BertConfig, BertForSequenceClassification
 from transformers import BertTokenizerFast
 from torch.utils.data import DataLoader
 # from transformers.data.metrics import acc_and_f1
-from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, confusion_matrix, ConfusionMatrixDisplay
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, confusion_matrix, ConfusionMatrixDisplay, matthews_corrcoef
+from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
+from sklearn.utils.class_weight import compute_class_weight
 
 import logging
 import sys
@@ -11,6 +13,7 @@ import multiprocessing
 import os
 from datetime import datetime
 import torch
+import torch.nn as nn
 from tqdm import tqdm
 import numpy as np
 import pandas as pd
@@ -94,13 +97,20 @@ def compute_metrics(preds, truths, output_path, save_images=False):
     f1 = f1_score(truths, preds, average='binary')
     recall = recall_score(truths, preds, average='binary')
     precision = precision_score(truths, preds, average='binary')
+    mcc = matthews_corrcoef(truths,preds)
     
     conf_matr = confusion_matrix(truths, preds)
     tn, fp, _, _ = conf_matr.ravel()
     specificity = tn / (tn + fp)
     
     if (save_images):
-        logging.debug(f'Saving confusion matrix in {output_path}')
+        cmtx = pd.DataFrame(
+            conf_matr, 
+            index=['P', 'N'], 
+            columns=['PP', 'PN']
+        )
+        logging.debug(f'Confusion matrix:\nTot prediction={conf_matr.sum()}\n{cmtx}')
+        logging.debug(f'An image of the confusion matrix is saved in {output_path}')
         matr_path = os.path.join(output_path, 'conf_matr_0.png')
         txt_path = os.path.join(output_path, 'classified_sentences_0.txt')
         i=0
@@ -125,10 +135,11 @@ def compute_metrics(preds, truths, output_path, save_images=False):
     # return acc,f1,recall,precision,specificity
     return {
         'acc':accuracy,
+        'mcc':mcc,
+        'f1':f1,
         'rec':recall,
         'pre':precision,
-        'spe':specificity,
-        'f1':f1
+        'spe':specificity
     }
 
 def eval(args, test_dataset, model, output_folder):
@@ -328,6 +339,10 @@ def main():
         logging.debug('Saving the model in the same folder of the pretrained one')
     logging.info(f"There are {torch.cuda.device_count()} GPUs and {multiprocessing.cpu_count()} CPUs.")
     
+    # TODO:
+    #   PRINTARE IL SEED
+    #   SALVARE IN QUALCHE MODO I PESI DEL MODELLO PRETRAINATO
+    
     if args.save_finetuned_folder is not None:
         finetune_save_folder = os.path.join(args.save_finetuned_folder, 'finetuned_model')
         if os.path.exists(finetune_save_folder) and args.do_train:
@@ -356,12 +371,23 @@ def main():
                 test_dataset = NewFinetuningDataset(tokenizer,
                                                file_path=args.input_file,
                                                max_length=args.max_seq_length)
+                labels = [test_dataset[i]['labels'].item() for i in tqdm(range(len(test_dataset)), desc='Getting labels')]
+                logging.info(f'Positive labels: {labels.count(1)}/{len(labels)}, {labels.count(1)/len(labels)*100:.2f}%')
             else:
                 logging.debug(f'Splitting the dataset in {(1-args.test_split)*100:.2f}% train and {args.test_split*100:.2f}% test')
                 dataset = NewFinetuningDataset(tokenizer, 
                                     file_path=args.input_file, 
                                     max_length=args.max_seq_length)
-                train_dataset, test_dataset = torch.utils.data.random_split(dataset, [1-args.test_split,args.test_split])
+                labels = [dataset[i]['labels'].item() for i in tqdm(range(len(dataset)), desc='Getting labels')]
+                logging.info(f'Positive labels: {labels.count(1)}/{len(labels)}, {labels.count(1)/len(labels)*100:.2f}%')
+                train_indices, test_indices = train_test_split(
+                    range(len(dataset)),
+                    test_size=args.test_split,
+                    stratify=labels,
+                    random_state=args.random_seed
+                )
+                train_dataset = torch.utils.data.Subset(dataset, train_indices)
+                test_dataset = torch.utils.data.Subset(dataset, test_indices)
         elif os.path.isdir(args.input_file):
             train_file = os.path.join(args.input_file, 'train.txt')
             test_file = os.path.join(args.input_file, 'test.txt')
@@ -381,7 +407,7 @@ def main():
                                 max_length=args.max_seq_length)
         
     if args.do_train and args.do_eval:  
-        logging.info(f'There are {len(train_dataset)} documents in the train datatset and {len(test_dataset)} in the evaluation one.')
+        logging.info(f'There are {len(train_dataset)} documents in the train dataset and {len(test_dataset)} in the evaluation one.')
     elif args.do_train:
         logging.info(f'Only the train will be performed. There are {len(train_dataset)} documents in the dataset')
     elif args.do_eval:
